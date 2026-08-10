@@ -1,0 +1,219 @@
+================================================================================
+MODEL TRAINING GUIDE
+AI Study Invigilator
+================================================================================
+
+This covers training the temporal engagement classifier (GRU primary,
+LSTM/Transformer as comparisons) and the fatigue-pattern autoencoder.
+Read Section 9 (Deep Learning Components) and Section 10 (Dataset
+Strategy) of AI_Study_Invigilator_Project.txt first if you haven't --
+this guide assumes that context.
+
+IMPORTANT REMINDER BEFORE YOU START TRAINING ANYTHING:
+Do not start here. Follow the roadmap in Section 13 -- Phase A (signal
+feasibility) and Phase B (feature pipeline) and Phase C (rule-based
+baseline) should already exist and work BEFORE you train any deep
+learning model. If your features are noisy, no amount of training fixes
+that, and you won't be able to tell "the model is bad" apart from "the
+features are bad" without a working baseline to compare against.
+
+================================================================================
+STEP 1 -- GET THE DAiSEE DATASET
+================================================================================
+
+  DAiSEE is the standard academic benchmark for this problem space:
+  9,068 video snippets from 112 users, labeled across engagement,
+  boredom, confusion, and frustration (each on a 4-level ordinal scale),
+  collected during online lecture-watching.
+
+  Request access via the official DAiSEE project page (search "DAiSEE
+  dataset download" -- access typically requires filling out a short
+  academic-use request form; follow whatever current process the
+  dataset maintainers specify at the time you do this, since download
+  mechanics can change).
+
+  LABEL MAPPING -- IMPORTANT, DOCUMENT THIS IN YOUR REPORT:
+  DAiSEE's labels are NOT the same taxonomy as this project's four
+  states (Engaged / Idle-present / Distracted-present / Away). You need
+  an explicit, justified mapping, for example:
+    - High engagement + low boredom/confusion/frustration -> Engaged
+    - Low engagement, low boredom -> Idle-present (weakest mapping;
+      state this limitation clearly -- DAiSEE doesn't cleanly capture
+      "present but idle" the way this project needs)
+    - Low engagement + high boredom or high confusion -> Distracted-present
+    - (DAiSEE has no "away" class -- it assumes a face is always present
+      in frame; Away is validated separately via your own data, since it
+      is a deterministic rule anyway, not a learned class)
+  Write this mapping into a documented function (e.g.
+  data/daisee_label_mapping.py) rather than an ad hoc script, so it's
+  citable and defensible in your report.
+
+  Extract per-clip features (Layer 1 + 2 of the pipeline: run MediaPipe
+  on DAiSEE's frames, produce the same feature vector schema your
+  watcher produces live) rather than training on raw pixels -- this
+  keeps DAiSEE experiments and your deployment model using identical
+  input representations, which is what makes the comparison meaningful.
+
+================================================================================
+STEP 2 -- COLLECT YOUR OWN DIARY-PROTOCOL DATASET
+================================================================================
+
+  This validates the model in the ACTUAL deployment domain (self-study,
+  not lecture-watching) and is what you should ultimately fine-tune on
+  or validate against before calling the model "done."
+
+  PROTOCOL (run this yourself, and with any consenting teammates):
+    Record short (2-3 minute) scripted segments, each performing ONE
+    behavior clearly, labeled honestly as you go:
+      1. "Engaged" -- actually work on a real task, typing/reading
+         normally, facing the screen
+      2. "Idle-present" -- read without typing, occasional stillness,
+         face still toward the screen
+      3. "Distracted-present" -- deliberately look away repeatedly, or
+         switch to an unrelated browser tab
+      4. "Away" -- get up and leave the frame
+      5. "Note-taking" (feeds the false-positive test set, not a
+         trained class itself) -- look down and write on paper,
+         periodically glancing back up
+      6. "Talking" (same purpose) -- turn head to the side and hold it,
+         simulating a conversation
+      7. "Eyes-closed-brief" and "eyes-closed-prolonged" (same purpose)
+         -- a few seconds vs. several minutes, for validating the
+         duration thresholds in Section 6
+      8. "Phone-present" -- hold a phone in frame briefly, then for a
+         sustained period, for validating phone-detection thresholds
+      9. "Second-person-present" -- have a second consenting person step
+         into frame briefly, then sit/stand in frame for a sustained
+         period, for validating second-person-detection thresholds. This
+         is the one behavior in this protocol that requires a second
+         participant by definition -- see the consent note below, it
+         applies especially here since a second person is the actual
+         subject of the recording for this segment, not just present in
+         the background.
+
+  CONSENT AND PRIVACY, HANDLED PROPERLY:
+    - Get explicit consent from anyone you record, including yourself
+      (write it down, even informally, e.g. a short signed note or
+      email -- this matters if you ever show this dataset or discuss
+      its collection in a report).
+    - For behavior 9 above specifically: get explicit, separate consent
+      from the second participant before recording that segment, since
+      they are the direct subject of it, not incidental background. Tell
+      them plainly what the clip is for (validating a "second person
+      detected" signal) and that no raw video will be retained past
+      feature extraction, same as everyone else's recordings.
+    - Do NOT commit raw video to your repository, ever. Run the feature
+      extraction pipeline immediately after recording, save only the
+      resulting numeric feature CSV, and delete the raw video (or keep
+      it in a separate, gitignored, access-controlled location if you
+      need to re-extract features later).
+    - Let anyone recorded know they can ask for their data to be deleted
+      at any time, and actually honor that.
+
+  OUTPUT FORMAT (CSV, one row per timestep):
+    timestamp, session_id, participant_id, yaw, pitch, roll, gaze_x,
+    gaze_y, eyes_closed, posture_angle, movement_delta, face_conf,
+    phone_detected, second_person_detected, look_up_cycle_rate, label
+
+================================================================================
+STEP 3 -- TRAIN THE TEMPORAL MODELS
+================================================================================
+
+  Your AI-assistant-generated Phase D code should give you a script
+  roughly like:
+
+    python experiments/train_temporal_model.py \
+      --model gru \
+      --dataset daisee \
+      --window-size 90 \
+      --epochs 30 \
+      --output experiments/runs/gru_daisee_w90/
+
+  Run this THREE times, changing --model to gru, lstm, and transformer,
+  keeping everything else identical -- this is your core ablation
+  comparison for the report (Section 15, Evaluation Methodology).
+
+  Then run a window-size sweep on your best-performing architecture:
+    --window-size 30, 60, 90, 120 (seconds), holding model type fixed.
+
+  Then repeat training with --dataset self_collected (or a combined /
+  fine-tuned run: pretrain on DAiSEE, fine-tune on self_collected) to
+  validate performance in the actual deployment domain -- this
+  comparison (DAiSEE-only vs. fine-tuned-on-self-collected) is one of
+  the more interesting, defensible results you can put in a report,
+  since it directly demonstrates you understand dataset-domain mismatch.
+
+  METRICS TO LOG FOR EVERY RUN (ask your AI assistant to write these to
+  a results CSV/JSON automatically, not just print them):
+    accuracy, precision, recall, F1 (macro-averaged, since classes are
+    likely imbalanced -- Engaged will dominate), confusion matrix,
+    inference latency (ms per window, measured on CPU since that's the
+    deployment target), model size (MB), parameter count.
+
+  SANITY CHECK BEFORE TRUSTING ANY RESULT:
+    Compare every trained model's accuracy against the Phase C
+    rule-based baseline's accuracy on the SAME held-out data. If your
+    trained GRU doesn't clearly beat the simple heuristic baseline,
+    that's a real, useful, reportable finding too (it might mean you
+    need more data, better features, or that the heuristic was already
+    quite good) -- don't hide this, discuss it honestly in your report.
+    An honest negative-ish result explained well is more impressive to
+    an interviewer than a suspiciously perfect accuracy number.
+
+================================================================================
+STEP 4 -- TRAIN THE FATIGUE-PATTERN AUTOENCODER
+================================================================================
+
+  This is trained differently: it's unsupervised (reconstruction-based),
+  and ideally trained PER-STUDENT on their own accumulating history
+  (or pretrained on a pooled set and fine-tuned per student), since the
+  whole point is comparing a student's current session pattern to their
+  own established baseline, not to a population norm.
+
+    python experiments/train_autoencoder.py \
+      --dataset self_collected \
+      --mode per_participant \
+      --output experiments/runs/autoencoder_v1/
+
+  Evaluate by reconstruction error on held-out normal sessions (should
+  be low) vs. deliberately anomalous sessions you can simulate (e.g. a
+  session with unusually high distracted/idle ratio near the end,
+  simulating fatigue) -- reconstruction error should be noticeably
+  higher on these.
+
+================================================================================
+STEP 5 -- EXPORT THE MODEL FOR THE WATCHER
+================================================================================
+
+  The deployed GRU needs to run fast on CPU inside the local watcher.
+  Export your trained PyTorch model with TorchScript or ONNX for a
+  lighter, faster inference path:
+
+    python experiments/export_model.py \
+      --checkpoint experiments/runs/gru_daisee_w90/best.pt \
+      --format torchscript \
+      --output watcher/models/temporal_gru.pt
+
+  Confirm the exported model's inference latency is comfortably fast
+  enough to run continuously (target: well under your feature-sampling
+  interval, e.g. if you sample features every 1-2 seconds, inference
+  should take a small fraction of that, not close to or over it).
+
+================================================================================
+KEEPING TRAINING RUNS ORGANIZED
+================================================================================
+
+  Use experiments/runs/<model>_<dataset>_<config>/ as your naming
+  convention, and have your training script always write:
+    - config.json (all hyperparameters used)
+    - metrics.json (final + per-epoch metrics)
+    - confusion_matrix.png
+    - best.pt (checkpoint)
+  This makes Section 15 (Evaluation Methodology) of your report a matter
+  of reading these files back, not reconstructing what you ran from
+  memory.
+
+================================================================================
+NEXT: see 03_DEPLOYMENT_GUIDE.txt to get the shared dashboard live and
+distribute the watcher to users.
+================================================================================

@@ -1,0 +1,35 @@
+# docker-compose_PHASE_C.yml
+# ---------------------------
+# Local PostgreSQL for development, matching what gets deployed to
+# production (see 03_DEPLOYMENT_GUIDE.txt Part 1). Requires Docker
+# Desktop (confirmed available on your Windows machine).
+#
+# USAGE:
+#   docker compose -f docker-compose_PHASE_C.yml up -d
+#   (stops with: docker compose -f docker-compose_PHASE_C.yml down)
+#
+# This gives you a real Postgres instance on localhost:5432 that
+# behaves identically to what Railway/Render will provision in
+# production -- no SQLite-to-Postgres migration surprises later.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: study_invigilator_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: invigilator
+      POSTGRES_PASSWORD: dev_password_change_in_production
+      POSTGRES_DB: study_invigilator
+    ports:
+      - "5432:5432"
+    volumes:
+      - study_invigilator_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U invigilator -d study_invigilator"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  study_invigilator_pgdata:

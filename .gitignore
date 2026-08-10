@@ -1,0 +1,171 @@
+# Environment Variables & Secrets
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+.env.test
+*.pem
+*.key
+*.crt
+secrets.json
+credentials.json
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+.python-version
+pipenv.lock
+
+# Python Cache & Compiled Files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Pytest & Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+.nose2.cfg
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb
+.jupyter/
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+.project
+.pydevproject
+.settings/
+
+# VS Code Settings (if you want to share some configs, move them out of .gitignore)
+.vscode/settings.json
+.vscode/launch.json
+.vscode/extensions.json
+
+# OS Specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.bak
+
+# Logs & Temporary Files
+*.log
+*.logs
+logs/
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Database Files (if using SQLite locally)
+*.db
+*.sqlite
+*.sqlite3
+
+# Node/NPM (if applicable)
+node_modules/
+npm-debug.log
+package-lock.json.backup
+yarn-error.log
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# FastAPI/Uvicorn specific
+.uvicorn.pid
+*.pid
+
+# IDE local settings
+.editorconfig.local
+.pylintrc.local
+
+# API Key files & config overrides
+config.local.py
+settings.local.py
+api_keys.txt
+tokens.txt
+
+# Generated files
+*.generated.py
+auto_generated/
+
+# Cache directories
+.cache/
+.mypypy_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Model files (Large ML models - use Git LFS if you want to track these)
+*.tflite
+*.task
+*.pth
+*.pt
+*.onnx
+*.pb
+*.h5
+*.pkl
+*.pickle
+
+# Output files
+output/
+results/
+predictions/
+inference_results/
+
+# Development scratch files
+scratch/
+dev_notes.txt
+test_output.txt
+
+# IDEs - additional
+*.iml
+out/
+.gradle/
+
+# macOS
+.AppleDouble
+.LSOverride
+
+# Windows
+$RECYCLE.BIN/
+ehthumbs.db
+Thumbs.db
+*.lnk

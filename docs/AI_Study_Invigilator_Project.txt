@@ -1,0 +1,899 @@
+================================================================================
+AI STUDY INVIGILATOR
+A Privacy-First Deep Learning System for Study Attention, Time Management,
+and Personalized Scheduling
+================================================================================
+
+Author's working title: "AI Study Invigilator" (formerly "AI Study & Attention
+Analyzer"). This document is the single source of truth for the project. Use
+it to brief teammates, guide AI-assisted ("vibe") coding sessions, and as the
+basis for the project report / resume description.
+
+================================================================================
+1. PROBLEM STATEMENT
+================================================================================
+
+Many students are motivated but struggle with consistency: they sit down to
+study, intend to focus for a fixed block of time, and drift into distraction
+or leave their desk without realizing how much time has actually been lost.
+Generic advice ("take a break every 25 minutes") is not personalized, and
+students have no objective record of their own focus patterns to act on.
+
+GOAL
+Build a system that:
+  1. Observes a student during self-study using a laptop webcam (and,
+     optionally, coarse OS activity signals).
+  2. Estimates an observable, behavior-based "study engagement state"
+     (NOT a mental-state or emotion diagnosis) at each moment.
+  3. Lets the student set a target study block (e.g. 12:00-13:30) and
+     actively monitors compliance with that block in real time.
+  4. Automatically detects and times "away from desk" periods (a stopwatch
+     that starts the moment the student leaves and stops when they return),
+     distinct from user-declared breaks.
+  5. Notifies the student live if they are away or distracted for too long,
+     acting like a strict-but-fair invigilator/mentor.
+  6. After each block (and over weeks of history), reports exactly how much
+     time was worked properly, how much was on declared breaks, and how much
+     was lost to undeclared absence/distraction.
+  7. Learns the student's own sustainable focus pattern and recommends
+     adjustments -- e.g. "shrink your block to 45 minutes with a mandatory
+     break" or "you're consistently on-track, try extending to 105 minutes."
+
+EXPLICIT NON-GOALS / GUARDRAILS
+  - The system NEVER claims to detect emotions, mental state, or "whether
+    someone is mentally focused." It only classifies observable signals:
+    face orientation, gaze direction, posture, presence/absence, movement,
+    and (optionally) OS activity patterns.
+  - Raw webcam video is NEVER stored. Frames are processed in memory /
+    on-device and discarded; only extracted numeric features and derived
+    session statistics are persisted.
+  - All state estimates are reported with the understanding that they are
+    proxies with uncertainty, not ground truth about the student's mind.
+
+WHY THIS MATTERS AS A PROJECT
+This is not "a webcam app that checks if you're looking at the screen."
+It combines computer vision, temporal deep learning, real-time systems
+design (live monitoring + notifications), statistical pattern mining over
+historical behavior, and an LLM reasoning layer that turns numbers into
+personalized, appropriately-toned coaching. It is designed to be strong
+enough for an AI/ML internship or off-campus software/ML interview
+portfolio.
+
+================================================================================
+2. WHO THIS IS FOR
+================================================================================
+
+Students who are motivated but inconsistent -- they want to study, set
+intentions to study for a fixed period, but lack an objective feedback loop
+telling them how well they actually held to that intention. The system is
+designed to function like a strict, honest mentor sitting next to them:
+it doesn't nag for no reason, but when it speaks, it cites their own
+measured behavior, not generic advice.
+
+================================================================================
+3. CORE FEATURES
+================================================================================
+
+A. TARGET BLOCK PLANNING
+   - User sets a planned study block: start time, end time (or duration).
+   - Example: "12:00 to 13:30, no-break study session."
+
+B. LIVE ENGAGEMENT MONITORING (during an active block)
+   - Face presence, head pose, gaze direction, posture, and movement are
+     sampled from the webcam (~1-2 Hz) and classified into a state:
+     Engaged / Idle-present / Distracted-present / Away.
+   - Optional OS-activity signal (active window category + input activity
+     boolean) is fused in to strengthen the "actually doing work" estimate
+     -- content and keystrokes are never logged, only category + boolean.
+
+C. AUTOMATIC AWAY STOPWATCH
+   - The moment the system loses face presence beyond a short grace period
+     (avoids false triggers from a head turn or bad lighting), an "Away"
+     timer starts automatically.
+   - The timer stops the instant the student returns.
+   - This is distinct from a user-DECLARED break (student taps "Taking a
+     break" before stepping away) -- undeclared absence and declared breaks
+     are tracked and reported separately.
+
+D. LIVE NOTIFICATIONS ("STRICT MENTOR" IN THE MOMENT)
+   - Escalating, non-spammy nudges during an active block:
+     ~30s away  -> soft nudge ("Stepped away? Mark a break or resume.")
+     ~2min away -> firmer notice ("This is being logged as away time.")
+   - Tone (strict / neutral / encouraging) is a configurable persona,
+     applied consistently to both live notifications and end-of-block
+     summaries.
+
+E. END-OF-BLOCK REPORT
+   For every completed target block, the student sees:
+     - Time actually worked (Engaged + Idle-present)
+     - Time on declared breaks
+     - Time away/undeclared or distracted (i.e. NOT working) during the
+       allocated period
+     - Compliance percentage (worked time / planned duration)
+     - A plain-language verdict
+
+F. PATTERN LEARNING & SCHEDULE RECOMMENDATIONS
+   - The system looks at compliance trends across the student's OWN recent
+     history at a given block length (not generic population averages):
+       * Consistently high compliance -> suggest extending the block
+       * Consistently low compliance / frequent away-events -> suggest
+         shrinking to a shorter block (e.g. 45 min) with a mandatory
+         scheduled break
+       * Mixed / improving trend -> suggest adding one scheduled break
+         at the midpoint, keep duration the same
+   - This produces a genuinely personalized "best timetable for a lazy
+     but motivated student," grounded in the student's measured behavior,
+     not a one-size-fits-all Pomodoro rule.
+
+G. DASHBOARD
+   - Total study time, focused time, distracted time, break count and
+     duration, average uninterrupted focus stretch, focus score over time,
+     daily/weekly trends, attention timeline per session, posture stats,
+     and personalized recommendations.
+   - Designed to be genuinely motivating: seeing "you worked 78% of your
+     planned time this week, up from 61% last week" is the kind of honest,
+     specific feedback that drives a motivated-but-inconsistent student to
+     push harder.
+
+H. PRIVACY BY DESIGN
+   - No raw video storage, ever.
+   - Processing happens locally/in-memory where possible.
+   - Only numeric features and derived statistics are persisted to the
+     database.
+
+================================================================================
+4. SYSTEM ARCHITECTURE (LAYERED)
+================================================================================
+
+The system is built as independent, swappable layers so each can be
+developed and tested in isolation before wiring them together.
+
+  Layer 1 -- PERCEPTION
+    Webcam -> Frame Capture -> Face Detection, Facial Landmarks / Head
+    Pose, Eye/Gaze Features, Pose Estimation, Person Presence Detection,
+    Phone/Object Detection, Second-Person Detection
+    (MediaPipe Face Landmarker + Pose Landmarker + Object Detector
+    [EfficientDet-Lite0, COCO-pretrained, includes a "cell phone" class];
+    Second-Person Detection reuses the Face Landmarker itself, configured
+    for up to 2 faces, rather than a separate model; all pretrained, not
+    retrained -- this is infrastructure, not the project's contribution)
+
+  Layer 2 -- FEATURE ENGINE
+    Raw per-frame landmarks/pose -> clean numeric feature vector per
+    timestep: [head_yaw, head_pitch, head_roll, gaze_x, gaze_y,
+    eyes_closed_bool, face_present, posture_angle, movement_delta,
+    active_window_category, input_activity_bool, ...]
+    Also computes two short-window DERIVED features that Layer 3 needs to
+    tell note-taking from disengagement and glances from conversations
+    (see Section 6 for the full behavioral logic these support):
+      - look_up_cycle_rate: how often, over the last ~30s, downward pitch
+        is interrupted by a brief return to on-screen gaze (high rate =
+        note-taking; near-zero rate with sustained down-pitch = a
+        different, possibly concerning pattern)
+      - gaze_envelope: the student's on-screen gaze zone, set once via a
+        short per-user calibration step at first use, used to normalize
+        gaze_x/gaze_y so wide-monitor and multi-monitor setups don't
+        read as constant off-screen movement
+
+  Layer 3 -- TEMPORAL DEEP LEARNING MODEL
+    Sequence of feature vectors (a sliding window, e.g. 60-120 sec) ->
+    GRU (primary, deployed model) -> Engaged / Idle-present /
+    Distracted-present classification.
+    ("Away" is handled as a deterministic rule directly from face-presence,
+    not learned -- simpler and more accurate than asking a model to
+    relearn what face detection already gives for free. Sustained
+    eyes-closed beyond the configured ceiling, default 6 min, is also a
+    deterministic duration rule, not a learned class -- see Section 6.)
+    The model is trained to use the look_up_cycle_rate and gaze_envelope-
+    normalized features specifically so it learns to separate note-taking
+    and wide-monitor glancing from genuine distraction, rather than
+    learning a naive "any non-forward gaze = distracted" shortcut.
+    Compared against LSTM and a small Temporal Transformer encoder as an
+    ablation/evaluation experiment (see Section 9).
+
+  Layer 4 -- LIVE MONITORING & STOPWATCH ENGINE
+    Consumes the classified state stream in real time during an active
+    Target Block. Runs the away-detection state machine, fires live
+    notifications, and lets the user declare breaks.
+
+  Layer 5 -- SESSION ANALYTICS
+    Smooths per-frame states (majority vote over a small window to remove
+    jitter), splits into sessions, computes per-block summaries: worked
+    time, distracted time, away time, break time, compliance %, and
+    detects "unbroken work stretches" (see Section 7).
+
+  Layer 6 -- PATTERN MINING & RECOMMENDATION ENGINE (deterministic)
+    A rules/statistics engine (no LLM) over the student's historical
+    TargetBlock summaries: computes trend, verdict (on_track /
+    needs_shorter_blocks / needs_scheduled_breaks), and a suggested next
+    schedule. This layer is fully auditable and testable on its own.
+
+  Layer 7 -- LLM REASONING LAYER
+    Takes ONLY the structured output of Layer 6 (verdict, numbers, trend)
+    as input -- never raw video, never raw per-frame data -- and produces
+    natural-language insights and a well-phrased recommendation in the
+    configured mentor tone (strict/neutral/encouraging). Uses the Claude
+    API. This is a deliberate separation: numbers come from deterministic,
+    auditable code; only the phrasing comes from the LLM.
+
+  Layer 8 -- DASHBOARD & STORAGE
+    FastAPI backend, SQLite/PostgreSQL for session statistics only (never
+    raw video), React/Next.js or Streamlit frontend.
+
+FULL PIPELINE (TEXT DIAGRAM)
+
+  Webcam
+    -> Frame Capture
+    -> [MediaPipe] Face Detection + Landmarks + Pose + Gaze
+    -> Feature Extraction (numeric vector per timestep)
+    -> Temporal DL Model (GRU) -> per-timestep state
+    -> State Smoothing (majority vote)
+    -> Live Monitoring Engine (Away stopwatch, notifications, break toggle)
+    -> Session Analytics (stretches, sessions, per-block summaries)
+    -> Recommendation Engine (deterministic trend/verdict rules)
+    -> LLM Reasoning Layer (Claude API: phrasing, tone, personalized copy)
+    -> Dashboard (React/Streamlit) + Database (SQLite/PostgreSQL, stats only)
+
+================================================================================
+5. STATE TAXONOMY
+================================================================================
+
+  ENGAGED             Face present, gaze on-screen, (optionally) active
+                       window matches study context, recent input activity.
+
+  IDLE-PRESENT         Face present, low movement, no recent input activity.
+                       Example: reading, thinking. Deliberately NOT labeled
+                       as distracted -- absence of typing isn't absence of
+                       work.
+
+  DISTRACTED-PRESENT    Face present, gaze repeatedly off-screen, or active
+                       window is a non-study category.
+
+  AWAY                Face absent beyond a short grace threshold. Handled
+                       as a deterministic rule (not learned), and drives
+                       the automatic stopwatch.
+
+  FATIGUED-PATTERN (derived, session-level, not per-frame)
+                       Rising idle/distracted frequency + posture decline
+                       over the last N minutes RELATIVE TO THE STUDENT'S
+                       OWN SESSION BASELINE. Produced by an anomaly /
+                       reconstruction model (autoencoder), not a hard
+                       classifier -- explicitly comparative, never an
+                       absolute claim about tiredness.
+
+================================================================================
+6. FALSE-POSITIVE HANDLING -- STUDY BEHAVIOR IS NOT "ALWAYS FACING FORWARD"
+================================================================================
+
+CORE DESIGN PRINCIPLE
+  No state is decided from a single frame. Every flag requires a signal to
+  persist past a duration threshold that is calibrated to what real
+  studying actually looks like -- not an idealized "student stares
+  motionless at the screen" assumption. A single frame of head-down,
+  eyes-closed, or head-turned proves nothing on its own; the pattern over
+  a short window is what carries meaning. This principle is the answer to
+  the most common interview question this project will get: "how do you
+  avoid false positives?"
+
+The naive version of this system (raw gaze-on-screen = focused) would
+misfire constantly, because real studying includes note-taking, thinking
+pauses, wide-monitor eye movement, and brief conversations that are not
+distraction. Each case below is handled with its own rule, not folded
+into a single threshold.
+
+  CASE: HEAD DOWN, WRITING NOTES
+    Signal pattern: head pitched down, sustained, WITH periodic brief
+    glances back up toward the screen, and often paired with a steady,
+    repetitive hand/wrist movement region if pose landmarks are tracked
+    at that resolution.
+    Handling: recognized as a distinct NOTE-TAKING pattern, not scored as
+    Distracted-present. Sustained downward pitch alone is not sufficient
+    to flag -- it is extremely common, legitimate study behavior and
+    flagging it would make the system feel unfair almost immediately.
+    Distinguishing feature vs. genuine disengagement: note-taking down-
+    pitch typically shows a rhythmic look-down/look-up cycle over
+    10-30 second periods; a student who has simply put their head down
+    and stopped participating shows a down-pitch with no return cycle at
+    all (this second pattern is closer to the eyes-closed/away logic
+    below, not the note-taking case).
+
+  CASE: HEAD TURNED TO TALK TO SOMEONE
+    Signal pattern: head yaw beyond the on-screen tolerance zone, HELD
+    for a sustained duration, often with detectable speech-adjacent jaw
+    movement if available.
+    Handling: SHOULD be flagged as Distracted-present, but only once the
+    turn is sustained past a short grace period (e.g. several seconds).
+    Distinguishing feature vs. a benign glance: a glance (checking a
+    second monitor, looking at a phone on the desk, a quick "did someone
+    call me" turn) returns to on-screen within 1-2 seconds. A
+    conversation holds the turned position continuously. The duration
+    threshold, not the fact of turning, is what separates these.
+
+  CASE: WIDE / MULTI-MONITOR HORIZONTAL GAZE SWEEP
+    Signal pattern: gaze_x oscillates across a wider horizontal range
+    than a single laptop screen would require, but stays within a
+    plausible "reading across a wide display" arc.
+    Handling: NOT flagged. The on-screen gaze tolerance zone is
+    calibrated per setup (see below), not a fixed universal angle. A
+    student with a 34" ultrawide or dual monitors legitimately moves
+    their eyes and head further left-right than someone on a 13" laptop,
+    and treating that as distraction would make the system actively
+    wrong for a large fraction of setups.
+    Implementation note: a short one-time CALIBRATION STEP at first use
+    (e.g. "look at each corner of your screen(s) for a moment") records
+    the student's actual on-screen gaze envelope, and that envelope --
+    not a hardcoded angle -- defines "on-screen" for that student's
+    setup from then on.
+
+  CASE: EYES CLOSED BRIEFLY WHILE THINKING
+    Signal pattern: eyes closed (or near-closed) for a few seconds,
+    often with head still upright and facing the screen.
+    Handling: NOT flagged. This is normal cognitive behavior during
+    problem-solving and reading comprehension. Treating it as distraction
+    or fatigue would be exactly the kind of unsupported mental-state
+    claim this project explicitly avoids (see Section 1, guardrails).
+
+  CASE: EYES CLOSED FOR A PROLONGED PERIOD (~6+ MINUTES)
+    Signal pattern: eyes closed continuously, combined with an absence
+    of the normal small head/posture adjustments a working person makes,
+    sustained past a long duration threshold (default: 6 minutes,
+    configurable).
+    Handling: SHOULD be flagged. This is different in kind from the
+    brief-eyes-closed case above -- the duration is far outside the
+    range of a thinking pause, and combined with stillness it is a
+    meaningfully different pattern.
+    Labeling discipline: the flag is worded as "prolonged eye closure --
+    possible rest/sleep," an inference with stated uncertainty, NOT
+    asserted as "the student is asleep." This keeps the system honest
+    about the fact that it observes eye state and stillness, not
+    consciousness -- a system that states behavioral inferences as
+    certainties is both less accurate and easier for a critical reader
+    (or interviewer) to discredit. The 6-minute default threshold should
+    be justified in the report as a deliberately conservative cutoff,
+    chosen to be well outside the range of normal thinking pauses (which
+    the literature and common sense both place at well under a minute).
+
+  CASE: PHONE DETECTED IN FRAME
+    Signal pattern: a separate lightweight object-detection model (not
+    the face/pose pipeline) run on the same webcam frame, flagging when
+    a "cell phone" class is detected with reasonable confidence.
+    Handling: SHOULD be flagged, gated by the same duration principle as
+    everything else -- a phone that appears in-frame for a single frame
+    (picked up and set back down, or briefly passing through frame) is
+    not flagged; a phone held/visible for a sustained duration (e.g.
+    several seconds) triggers a direct, named warning notification, e.g.
+    "Don't use your phone, {name}." This is the one case in the system
+    where the live notification is deliberately direct and personalized
+    rather than softly worded, because unlike ambiguous gaze/posture
+    signals, a phone in frame during a study block is a much less
+    ambiguous signal -- there are fewer innocent explanations for it than
+    for, say, a head turn.
+    Model: MediaPipe Object Detector with the EfficientDet-Lite0 model,
+    pretrained on the COCO dataset, which already includes "cell phone"
+    as one of its 80 object classes -- this is reused, off-the-shelf
+    infrastructure, not a model trained from scratch, exactly like the
+    face/pose landmarkers. No custom training data is needed for this
+    specific detection.
+    Note on ambiguity: a phone visible on the desk but untouched (e.g.
+    face-down, screen off, not being looked at) is a harder case than a
+    phone held up in front of the face. A reasonable first version
+    treats ANY sustained phone detection in-frame as flag-worthy and
+    documents this as a known simplification; a more advanced version
+    could combine phone-detection with gaze-toward-phone-region to
+    reduce false positives on a phone that's simply sitting nearby.
+
+  CASE: A SECOND PERSON ENTERS THE FRAME
+    Signal pattern: the same Face Landmarker used for the primary
+    student's head pose/gaze/eyes is configured to detect up to two
+    faces (rather than one); a second detected face, sustained, is the
+    signal.
+    Handling: SHOULD be flagged, gated by the same duration principle as
+    everything else -- a second face for a single frame (someone briefly
+    walking past in the background, a sibling passing through the room)
+    is NOT flagged; a second face present continuously for a sustained
+    duration (e.g. several seconds) triggers a direct, named warning
+    notification, e.g. "Stay in a quiet environment -- avoid talking to
+    others, {name}." Like phone detection, this is one of the cases
+    where the notification is deliberately direct rather than softly
+    worded, since a second person sitting down and remaining in frame
+    has fewer innocent "still studying" explanations than an ambiguous
+    gaze signal.
+    Model: reuses the Face Landmarker already running for the primary
+    student (Layer 1) -- no separate model needed. Setting num_faces=2
+    lets the same detector report whether more than one face is present;
+    the system still only uses face index 0 for the primary student's
+    own head pose/gaze/eyes features, and treats any additional detected
+    face purely as a presence signal, not as another tracked individual.
+    Labeling discipline: the flag is worded around environment/behavior
+    ("stay in a quiet environment," "avoid talking to others"), not
+    around a claim about what the conversation is about or who the
+    second person is -- consistent with the project's guardrail against
+    unsupported claims (Section 1). The system observes "a second face
+    is present," not "the student is being distracted by a friend" or
+    any characterization of the interaction.
+    Note on ambiguity: this cannot distinguish a second person who is
+    also quietly studying alongside the student (e.g. a study partner,
+    a sibling doing homework at the same desk) from a second person who
+    is a genuine distraction. A reasonable first version flags ANY
+    sustained second-face presence and documents this as a known
+    simplification, exactly as with the phone-on-desk case above; a
+    future version could let a student mark a session as "co-studying"
+    to suppress this specific flag for that block.
+
+SUMMARY TABLE -- DURATION THRESHOLDS GOVERN EVERYTHING
+
+  Behavior                          Flag?   Governing factor
+  ---------------------------------------------------------------------
+  Brief head-down glance             No     Below note-taking window
+  Sustained head-down w/ look-up     No     Note-taking cycle pattern
+    cycle (writing notes)
+  Sustained head-down, no cycle      Maybe  Falls through to distracted/
+    (head just resting down)                fatigue logic if long enough
+  Brief head turn (glance)           No     Under turn-duration threshold
+  Sustained head turn (talking)      Yes    Over turn-duration threshold
+  Wide-monitor gaze sweep            No     Inside calibrated gaze envelope
+  Gaze genuinely off any screen      Yes    Outside calibrated gaze envelope,
+                                            sustained
+  Brief eyes-closed (thinking)       No     Under eyes-closed duration floor
+  Eyes-closed 6+ minutes             Yes    Over eyes-closed duration ceiling,
+                                            worded as an inference
+  Phone briefly passes through frame No     Under phone-visible duration floor
+  Phone held/visible, sustained      Yes    Over phone-visible duration floor;
+                                            direct, personalized warning
+  Second person briefly passes by    No     Under second-person duration floor
+  Second person present, sustained   Yes    Over second-person duration floor;
+                                            direct, personalized warning
+
+This table is the concrete deliverable for the Feature Engine and
+Temporal Model layers: every one of these rows becomes either a
+duration-gated rule (cheap, deterministic, good enough for the Phase C
+baseline) or a labeled pattern the temporal model is trained to
+distinguish (Phase D), rather than a single-frame threshold.
+
+================================================================================
+7. KEY DERIVED METRIC: UNBROKEN WORK STRETCH
+================================================================================
+
+Definition: a maximal continuous time interval where the proportion of
+Engaged + Idle-present states in a sliding window stays above a threshold,
+uninterrupted by an Away period longer than a break threshold (e.g. 3 min).
+
+Why it matters: this is the number that answers "how long has the student
+worked without a break," and it is compared against the STUDENT'S OWN
+historical distribution (not a generic rule) to decide whether their
+current target block length is realistic. This personalization is the
+project's strongest differentiator versus a generic Pomodoro app or a
+plain "focus detector."
+
+================================================================================
+8. DATA MODEL (CORE ENTITIES)
+================================================================================
+
+TargetBlock
+  id, user_id, planned_start, planned_end, planned_duration_min,
+  status (scheduled/active/completed/abandoned), actual_start, actual_end,
+  created_at
+
+StateEvent (fine-grained, continuous during an active block)
+  id, target_block_id, timestamp, state (engaged/idle_present/
+  distracted_present/away), raw_features (yaw, pitch, gaze_xy,
+  posture_angle, movement, face_conf -- kept for retraining, never raw
+  video)
+
+BreakEvent (explicit, user-declared)
+  id, target_block_id, break_start, break_end, declared=true
+
+AwayEvent (inferred, automatic -- the stopwatch)
+  id, target_block_id, away_start, away_end, duration_sec, was_notified
+
+PhoneEvent (inferred, automatic -- duration-gated, see Section 6)
+  id, target_block_id, detected_start, detected_end, duration_sec,
+  was_notified
+
+SecondPersonEvent (inferred, automatic -- duration-gated, see Section 6)
+  id, target_block_id, detected_start, detected_end, duration_sec,
+  was_notified
+
+TargetBlockSummary (computed once a block ends)
+  target_block_id, worked_sec, distracted_sec, away_undeclared_sec,
+  declared_break_sec, phone_flag_count, second_person_flag_count,
+  away_event_count, compliance_pct,
+  verdict (on_track/needs_shorter_blocks/needs_scheduled_breaks)
+
+Design note: Away, Break, Phone, and Second-Person are separate tables
+(not flags on one table) because each has a different trigger (automatic
+vs. user-declared) and different downstream meaning -- undeclared
+absence hurts compliance more than a declared, planned break, and phone/
+second-person events carry their own direct, personalized notification
+independent of the away-stopwatch.
+
+================================================================================
+9. DEEP LEARNING COMPONENTS
+================================================================================
+
+WHAT IS BUILT FROM SCRATCH VS. REUSED (be explicit about this in any
+report or interview -- it shows engineering judgment, not just library use)
+
+  Reused / pretrained (infrastructure, not the contribution):
+    - MediaPipe Face Landmarker (468 3D landmarks)
+    - MediaPipe Pose Landmarker (body landmarks for posture)
+    These are not retrained -- there is no reasonable amount of data to
+    beat Google's landmark models from scratch, and reinventing them adds
+    no value to the project.
+
+  Built by the student (the actual DL contribution):
+    1. A lightweight head-pose / gaze regressor on top of MediaPipe
+       landmarks (geometric solvePnP baseline, optionally a small MLP
+       regressor -- landmark-based MLP approaches have been shown
+       competitive with CNN baselines like ResNet18 for gaze estimation
+       while being far cheaper to run).
+    2. A temporal engagement classifier: GRU (primary/deployed) trained
+       on sliding windows of the extracted feature sequence, with LSTM
+       and a small Temporal Transformer encoder trained as comparison
+       baselines.
+    3. An autoencoder / anomaly-detection model over feature sequences to
+       flag "fatigued-pattern" deviations from a student's own baseline
+       (reconstruction-error based, not classification-based).
+    4. The deterministic session-analytics and recommendation-rule engine
+       (Layers 5-6) -- not "ML" in the modeling sense, but a real,
+       designed algorithm with clear evaluation criteria.
+
+  Explicitly not built from scratch:
+    - The LLM reasoning layer uses the Claude API directly. Re-training
+      or fine-tuning a language model is out of scope and would add
+      nothing -- the value-add is in prompt/context design (structured
+      stats in, grounded natural language out), not model training.
+
+WHY GRU AS THE PRIMARY DEPLOYED MODEL
+  - Sequences are short-to-medium (a few hundred timesteps per window at
+    1-2 Hz) and the per-timestep feature vector is small (~10-15 numbers)
+    -- exactly the regime where GRU's smaller parameter count tends to
+    match or beat LSTM with less overfitting risk on a modestly sized
+    dataset.
+  - Must run continuously on a laptop CPU alongside the student's actual
+    work -- GRU is cheaper at inference than a Transformer encoder.
+  - Transformer is kept as an ablation/comparison model in the evaluation
+    section (accuracy vs. latency vs. model size trade-off), not as the
+    deployed model -- this comparison itself is a strong piece of
+    evidence of rigor for a report or resume.
+
+================================================================================
+10. DATASET STRATEGY
+================================================================================
+
+PRIMARY PUBLIC BENCHMARK: DAiSEE
+  - The standard academic benchmark for this exact problem space: 9,068
+    video snippets from 112 users, labeled for engagement/boredom/
+    confusion/frustration (4 ordinal levels each), collected "in the
+    wild" during online lecture-watching.
+  - Used to validate that the temporal architecture (GRU/LSTM/Transformer)
+    works against a known, citable benchmark with real labels -- gives a
+    defensible accuracy/F1 number that isn't self-labeled.
+  - Known limitations to state explicitly in the report: clips are short
+    (~10s), the population skews toward a specific demographic, and the
+    context is online-lecture-watching, not self-directed study -- so it
+    validates the ARCHITECTURE, not the exact deployment domain.
+
+SELF-COLLECTED WEAK-LABEL DATASET (for the actual deployment domain)
+  - Diary-style protocol: log webcam sessions of yourself (and
+    teammates, with consent) performing scripted behaviors in sequence
+    -- e.g. "look at screen and type for 2 min" (Engaged), "look away
+    repeatedly" (Distracted-present), "read without typing" (Idle-
+    present), "leave the desk" (Away) -- to get cheap, honest labels for
+    the real use case.
+  - Used to fine-tune/validate the model actually deployed, after
+    architecture choice is validated on DAiSEE.
+  - Responsible collection: explicit consent from anyone recorded, no
+    raw video retained past feature extraction, clear ability to opt out
+    and have data deleted.
+
+================================================================================
+11. TECHNOLOGY STACK
+================================================================================
+
+  Perception / CV        Python, OpenCV, MediaPipe (Face Landmarker,
+                          Pose Landmarker, Object Detector /
+                          EfficientDet-Lite0 for phone detection)
+  Deep Learning           PyTorch (GRU/LSTM/Transformer models,
+                          autoencoder)
+  Classical ML / stats    NumPy, scikit-learn, Pandas
+  Backend / API           FastAPI
+  Database                SQLite (development) / PostgreSQL (production)
+                          -- statistics and features only, never raw video
+  Frontend / Dashboard    React/Next.js (or Streamlit for a faster
+                          first version)
+  LLM reasoning layer     Claude API (structured stats in, grounded
+                          natural-language + recommendation out)
+  Live notifications      OS-level notification API (desktop) or
+                          in-browser notification if browser-based
+
+================================================================================
+12. DEPLOYMENT ARCHITECTURE -- WHY A BROWSER TAB CANNOT DO THIS ALONE
+================================================================================
+
+REQUIREMENT VS. REALITY
+  Two requirements were given for this system: (1) it should work while
+  the student is in a DIFFERENT tab (LeetCode, docs, etc.), and (2) it
+  should be reachable by anyone via a shared link. These two requirements
+  pull toward DIFFERENT architectures, and it's important to resolve this
+  explicitly rather than building something that quietly breaks.
+
+WHY A PURE WEBSITE (BROWSER TAB) CANNOT SATISFY REQUIREMENT (1)
+  Browsers deliberately throttle or fully suspend JavaScript execution,
+  and in many cases stop delivering camera frames, on tabs that lose
+  focus or are backgrounded. This is not a bug or a missing feature to
+  code around -- it is a deliberate browser power-management and privacy
+  protection, present across all major browsers to varying degrees. A
+  webcam-monitoring tab that is not the active, focused tab will silently
+  degrade or stop working the moment the student switches to LeetCode --
+  which is the exact opposite of what "study invigilator" needs to do.
+
+THE RESOLUTION: SPLIT THE SYSTEM INTO A LOCAL WATCHER + A SHARED DASHBOARD
+  - LOCAL WATCHER (does the actual monitoring):
+    A small Python application, launched once at the start of a study
+    block, that runs OUTSIDE the browser as its own OS process. It owns
+    the webcam continuously, runs the full perception + feature +
+    temporal-model pipeline, tracks the away-stopwatch, detects phones,
+    and fires OS-level desktop notifications ("Don't use your phone,
+    {name}") -- ALL independent of whatever tab or application currently
+    has focus. This is the only architecture that guarantees monitoring
+    survives the student tabbing away to work elsewhere.
+    It communicates with the backend over the network (local HTTP calls
+    to the FastAPI backend, or a lightweight WebSocket connection),
+    sending only extracted features and state events -- never raw video.
+
+  - SHARED WEB DASHBOARD (the "link everyone can access" part):
+    A normal deployed website (FastAPI backend + React/Next.js or
+    Streamlit frontend) that shows target-block planning, live status
+    (reflecting what the local watcher is currently reporting), session
+    history, compliance reports, and recommendations. This is what gets
+    a public URL and what "anyone with the link" opens. It does NOT do
+    the watching itself -- it reads and displays what the watcher has
+    reported. If opened without a local watcher running, it behaves as a
+    historical dashboard / planning tool rather than a live monitor.
+
+  - HOW THEY CONNECT:
+    Each user runs the local watcher on their own machine (a small
+    downloadable script or packaged executable, tied to their account),
+    which authenticates to the shared backend and pushes state updates.
+    Multiple students can each run their own local watcher and each see
+    their own data on the same shared, publicly-reachable dashboard --
+    this is what makes "everyone with the link can access it" and
+    "monitoring survives backgrounding" both true at once, without
+    either one silently breaking the other.
+
+WHAT THIS MEANS PRACTICALLY FOR SETUP
+  A user visiting the public link for the first time needs to also
+  download and run the small local watcher program once (a "Start
+  Monitoring" button on the dashboard can link to this download and to
+  setup instructions). This is a normal pattern for tools that need
+  persistent local hardware access (screen-time trackers, some
+  productivity tools work this way for the same underlying reason) and
+  should be explained plainly in the product's own onboarding, not hidden.
+
+AN ALTERNATIVE NOT PURSUED, AND WHY
+  A browser extension with a persistent background service worker was
+  considered as a middle-ground option. It is closer to "stays alive
+  while browsing other tabs" than a plain webpage, but is still bound by
+  the browser extension platform's own background-execution limits, adds
+  meaningful build complexity (extension manifest, store review, per-
+  browser differences), and does not remove the core tension -- it only
+  narrows it. The local watcher + shared dashboard split is the more
+  honest, more robust architecture and is what this project should build.
+
+================================================================================
+13. DEVELOPMENT PHASES / ROADMAP
+================================================================================
+
+Phases are ordered to validate cheap assumptions before expensive ones,
+and to produce a working, demoable system at every milestone -- not just
+at the very end.
+
+PHASE A -- Signal feasibility check (days)
+  Run MediaPipe on webcam, log raw landmarks/pose/gaze while manually
+  acting "focused" / "distracted" / "away" for a few minutes each.
+  Confirms the features actually separate the classes before any model
+  is written.
+
+PHASE B -- Feature extraction pipeline
+  Deterministic, testable function: frame -> clean numeric feature
+  vector. No DL yet. This is the foundation every later layer depends on
+  -- noisy features here will look like "the model is bad" later when
+  the real problem is upstream.
+
+PHASE C -- Rule-based baseline (heuristic thresholds, no DL)
+  E.g. "gaze away > 5s => distracted." Gives a working end-to-end demo
+  immediately: dashboard, stretch detection, break counting, a first
+  version of the Target Block monitor and stopwatch -- all running on
+  simple rules. Also creates the baseline the trained model must beat.
+
+PHASE D -- Train the temporal DL model (GRU primary, LSTM + Transformer
+  as comparisons)
+  Only started once features are clean (Phase B) and a baseline exists
+  (Phase C) to compare against.
+
+PHASE E -- Anomaly / fatigue-pattern model (autoencoder)
+  Built after the classifier; reuses the same feature-sequence pipeline.
+
+PHASE F -- Pattern mining + recommendation engine
+  Needs multiple logged Target Blocks to be meaningful -- naturally comes
+  after a few weeks of real usage data exists.
+
+PHASE G -- LLM reasoning layer + polished dashboard + live notifications
+  Wraps the now-trustworthy analytics in natural language and a
+  professional UI; live notification system finalized here.
+
+================================================================================
+14. FOLDER STRUCTURE (SUGGESTED)
+================================================================================
+
+  ai-study-invigilator/
+  |-- watcher/                  # LOCAL WATCHER (Section 12) -- the process
+  |   |                         # that owns the webcam and runs continuously
+  |   |                         # regardless of tab focus
+  |   |-- perception/           # Layer 1: MediaPipe wrappers (face, pose,
+  |   |                         #          object detector for phone)
+  |   |-- features/             # Layer 2: feature extraction pipeline
+  |   |-- models/
+  |   |   |-- gaze_regressor/   # small head-pose/gaze model
+  |   |   |-- temporal/         # GRU, LSTM, Transformer implementations
+  |   |   |-- autoencoder/      # fatigue-pattern anomaly model
+  |   |-- monitoring/           # Layer 4: away-stopwatch, phone-warning,
+  |   |                         #          second-person-warning,
+  |   |                         #          notification state machine
+  |   |-- client.py             # sends state events to the backend API
+  |   |-- run_watcher.py        # entry point / packaged executable target
+  |-- backend/                  # SHARED WEB DASHBOARD backend
+  |   |-- analytics/            # Layer 5: session/stretch computation
+  |   |-- recommendation/       # Layer 6: deterministic trend/verdict rules
+  |   |-- llm/                  # Layer 7: Claude API prompt/context handling
+  |   |-- api/                  # FastAPI app, DB models, API routes
+  |   |-- auth/                 # per-user accounts so each watcher reports
+  |                             # to the correct user's data
+  |-- frontend/                 # React/Next.js or Streamlit dashboard --
+  |                             # the public, link-shareable part
+  |-- data/
+  |   |-- daisee/               # public benchmark (not committed raw)
+  |   |-- self_collected/       # diary-protocol sessions (features only)
+  |-- experiments/              # training scripts, ablation configs, results
+  |-- reports/                  # evaluation write-ups, confusion matrices, etc.
+  |-- deployment/                # Dockerfiles, hosting config (see helper docs)
+  |-- README.md
+
+================================================================================
+15. EVALUATION METHODOLOGY
+================================================================================
+
+MODEL-LEVEL EXPERIMENTS
+  - CNN-based vs. landmark-based (geometric/MLP) features for gaze
+    estimation: accuracy, latency, model size.
+  - LSTM vs. GRU vs. Temporal Transformer for the engagement classifier:
+    accuracy, precision, recall, F1, confusion matrix, inference latency,
+    model size, CPU/GPU utilization.
+  - Different temporal window sizes (e.g. 30s / 60s / 120s): effect on
+    accuracy and responsiveness.
+  - Different feature combinations (webcam-only vs. webcam + OS-activity
+    fusion): effect on classification quality, since this directly tests
+    the "gaze-at-screen isn't the same as working" hypothesis.
+
+SYSTEM-LEVEL EVALUATION
+  - Rule-based baseline vs. trained GRU model: does the DL model actually
+    beat simple heuristics? (Important, honest comparison for the report.)
+  - Away-detection stopwatch accuracy: false-trigger rate from head turns
+    / lighting vs. true away events, measured against manually logged
+    ground truth.
+  - Recommendation engine validity: does the compliance-trend-based
+    schedule suggestion actually track what a human reviewing the same
+    logs would suggest? (Can be spot-checked manually across sessions.)
+
+METRICS TO REPORT
+  Accuracy, Precision, Recall, F1-score, Confusion Matrix, Inference
+  latency, Model size, CPU/GPU utilization.
+
+================================================================================
+16. WHY THIS IS RESUME/INTERVIEW STRONG
+================================================================================
+
+  - Combines CV (MediaPipe), a genuine trained temporal DL model (GRU/
+    LSTM/Transformer, with a real ablation study), an anomaly-detection
+    model, a real-time systems component (live stopwatch + notification
+    state machine), a deterministic statistics/recommendation engine, and
+    a well-justified LLM integration -- a broad, coherent system, not a
+    single script.
+  - Deliberately keeps deterministic logic (numbers) separate from LLM
+    output (phrasing) -- a real architectural decision an interviewer can
+    probe and you can defend.
+  - Benchmarked against a standard academic dataset (DAiSEE) with stated,
+    honest limitations, plus a self-collected dataset for the real
+    deployment domain -- shows understanding of dataset validity, not
+    just "I trained a model."
+  - Explicit privacy-by-design (no raw video storage) and explicit
+    epistemic honesty (never claims to detect mental state, only
+    observable behavior) -- shows engineering maturity, which interviewers
+    notice.
+  - Solves a real, personally meaningful problem (helping inconsistent-
+    but-motivated students build sustainable study habits) with a concrete,
+    demoable feature set (target blocks, live away-stopwatch, compliance
+    reports, personalized schedule recommendations).
+
+================================================================================
+17. LIKELY INTERVIEW QUESTIONS
+================================================================================
+
+  1. How do you know the student is "distracted" and not just thinking?
+     -> Explain the Idle-present vs. Distracted-present distinction and
+        why it exists.
+  1b. How do you avoid flagging normal study behavior -- note-taking,
+      wide-monitor eye movement, brief conversations, thinking pauses --
+      as distraction?
+     -> This is the strongest "how do you avoid false positives" answer
+        in the project. Walk through Section 6 directly: every flag is
+        duration-gated and pattern-specific, not single-frame. Note-
+        taking is recognized by its look-down/look-up cycle, not just
+        downward pitch. Talking is separated from a glance by sustained
+        vs. brief head-turn duration. Wide-monitor movement is handled
+        by a per-student calibrated gaze envelope, not a fixed angle.
+        Brief eyes-closed is under a duration floor; only sustained
+        eyes-closed (~6 min default) crosses into a flagged, honestly-
+        worded inference ("possible rest/sleep," never asserted as fact).
+  1c. What happens if a second person -- a study partner, a sibling --
+      is legitimately in frame and not actually a distraction?
+     -> Acknowledge this directly rather than claiming the system
+        solves it perfectly: a sustained second face is flagged the
+        same way a phone is, gated by duration, but the system genuinely
+        cannot distinguish "co-studying" from "being distracted by
+        someone" from vision alone -- it observes presence, not intent.
+        State this as a documented, known simplification (Section 6),
+        and mention the natural next step: letting a student mark a
+        block as "co-studying" up front to suppress this specific flag.
+        This kind of honest limitation, stated clearly, reads better in
+        an interview than pretending the system has solved something it
+        hasn't.
+  2. Why GRU instead of LSTM or a Transformer?
+     -> Sequence length/feature size regime, inference cost on CPU,
+        ablation results.
+  3. Why not just use an LLM/vision-language model for the whole thing?
+     -> Cost, latency (must run continuously), privacy (no raw frames
+        leaving the device), and reliability/auditability of deterministic
+        stats vs. an LLM's numeric reasoning.
+  4. How do you validate the recommendation engine isn't just noise?
+     -> Trend-based (multiple sessions), not single-session reactive;
+        explain the on_track/needs_shorter_blocks/needs_scheduled_breaks
+        thresholds and why they require a pattern, not one bad session.
+  5. What happens with poor lighting / no camera / glasses / multiple
+     people in frame?
+     -> Discuss face-detection confidence thresholds, grace periods
+        before declaring "away," and out-of-scope handling.
+  6. How do you avoid false "away" triggers from a simple head turn?
+     -> The debounce/grace-period logic in the stopwatch state machine.
+  7. How is privacy actually enforced, not just claimed?
+     -> No raw frame persistence, only numeric features/statistics
+        written to disk; explain exactly what is and isn't stored.
+  8. What's your model's actual accuracy, and how does it compare to a
+     simple rule-based baseline?
+     -> Be ready with real numbers from Phase C vs. Phase D comparison.
+  9. How would this generalize to a different student than the ones in
+     your training/validation data?
+     -> Discuss DAiSEE's demographic limitations, the value of the
+        self-collected diary dataset, and per-student baseline comparison
+        for the fatigue/anomaly model (compares a student to their own
+        history, not to a population).
+  9b. Why isn't this just a website -- why does it need a local
+      component at all?
+     -> Explain the browser tab-backgrounding constraint directly
+        (Section 12): browsers throttle or suspend JS execution and
+        camera access on unfocused tabs, which is fundamentally
+        incompatible with "monitor continuously while the student works
+        in a different tab." Walk through the local-watcher +
+        shared-dashboard split and why it's the honest solution rather
+        than something that looks simpler but silently breaks.
+  10. How would you scale this to many students (e.g. a classroom
+      product)?
+      -> On-device inference keeps per-user compute local; backend only
+         stores aggregated statistics; discuss what would need to change
+         (auth, multi-tenant DB, aggregate-only analytics dashboards for
+         a teacher view) versus what stays the same.
+
+================================================================================
+END OF DOCUMENT
+================================================================================
