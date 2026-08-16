@@ -1,0 +1,192 @@
+================================================================================
+ENVIRONMENT SETUP GUIDE
+AI Study Invigilator
+================================================================================
+
+This project has TWO separate runtime environments, because it has two
+separate deployment targets (see AI_Study_Invigilator_Project.txt,
+Section 12, for why):
+
+  (A) THE LOCAL WATCHER environment -- runs on each student's own
+      machine, needs webcam access, MediaPipe, PyTorch (for inference
+      only, CPU is fine).
+  (B) THE BACKEND + FRONTEND environment -- runs on a server (or your
+      own machine during development), no webcam access needed, serves
+      the shared dashboard.
+
+Set both up on your development machine to start; you'll only deploy (B)
+to a public server later (see 03_DEPLOYMENT_GUIDE.txt).
+
+================================================================================
+PREREQUISITES
+================================================================================
+
+  - Python 3.10 or 3.11 (MediaPipe and PyTorch both have the best
+    compatibility here as of 2026 -- avoid 3.13+ until you've confirmed
+    your exact package versions support it)
+  - Node.js 20 LTS or newer (for the React frontend)
+  - Git
+  - A webcam (built-in laptop camera is fine) for testing the watcher
+  - An Anthropic API key (for the Claude-powered recommendation phrasing)
+    -- get one at https://console.anthropic.com if you don't have one
+  - (Optional but recommended) A GPU is NOT required for this project.
+    Training the GRU/LSTM/Transformer models on DAiSEE-scale data is
+    feasible on CPU, and the deployed model MUST run on CPU anyway since
+    it runs continuously on a student's laptop.
+
+================================================================================
+STEP 1 -- CLONE / CREATE THE PROJECT AND SET UP PYTHON
+================================================================================
+
+  mkdir ai-study-invigilator
+  cd ai-study-invigilator
+  git init
+
+  # Create the folder structure described in Section 14 of the project
+  # doc (watcher/, backend/, frontend/, data/, experiments/, reports/,
+  # deployment/) -- your AI coding assistant will create these as it
+  # generates code per the master prompt, but you can pre-create the
+  # top-level folders now if you prefer.
+
+  python3 -m venv venv
+  source venv/bin/activate        # Windows: venv\Scripts\activate
+
+================================================================================
+STEP 2 -- INSTALL WATCHER-SIDE DEPENDENCIES
+================================================================================
+
+  These go in watcher/requirements.txt once your codebase exists; for a
+  first manual install:
+
+  pip install --upgrade pip
+  pip install opencv-python
+  pip install mediapipe
+  pip install torch --index-url https://download.pytorch.org/whl/cpu
+  pip install numpy pandas scikit-learn
+  pip install requests websocket-client   # for talking to the backend
+  pip install python-dotenv
+
+  VERIFY THE WEBCAM WORKS:
+    python3 -c "
+    import cv2
+    cap = cv2.VideoCapture(0)
+    ok, frame = cap.read()
+    print('Camera OK:', ok, 'Frame shape:', frame.shape if ok else None)
+    cap.release()
+    "
+  If this prints "Camera OK: False", check OS camera permissions before
+  going further -- on macOS: System Settings -> Privacy & Security ->
+  Camera; on Windows: Settings -> Privacy -> Camera; on Linux, confirm
+  /dev/video0 exists and your user has permission to read it.
+
+  VERIFY MEDIAPIPE MODELS DOWNLOAD CORRECTLY:
+    python3 -c "
+    import mediapipe as mp
+    print('MediaPipe version:', mp.__version__)
+    "
+  The actual Face Landmarker, Pose Landmarker, and Object Detector
+  (.task/.tflite) model files are downloaded separately -- your AI
+  coding assistant's Phase A code should include the download step
+  (typically a wget/urlretrieve of the model file into a models/
+  directory), since these aren't bundled with the pip package itself.
+
+================================================================================
+STEP 3 -- INSTALL BACKEND DEPENDENCIES
+================================================================================
+
+  pip install fastapi uvicorn[standard]
+  pip install "sqlalchemy>=2.0.30" alembic  # ORM + migrations
+  pip install "psycopg[binary]"             # PostgreSQL driver (v3, the
+                                             # current recommended one --
+                                             # not psycopg2)
+  pip install pydantic
+  pip install anthropic                    # Claude API SDK
+  pip install python-jose[cryptography] passlib[bcrypt]   # auth
+  pip install websockets
+
+  DATABASE: this project uses PostgreSQL from Phase C onward, not
+  SQLite -- see Phase C's own README (README_PHASE_C.txt) for why and
+  for the full setup. Short version: run Postgres locally via Docker
+  Desktop:
+    docker compose -f docker-compose_PHASE_C.yml up -d
+  which gives you a real Postgres instance at localhost:5432, matching
+  what gets deployed to production later (03_DEPLOYMENT_GUIDE.txt).
+
+  Create backend/.env (never commit this file -- add it to .gitignore
+  immediately):
+    ANTHROPIC_API_KEY=your_key_here
+    DATABASE_URL=postgresql+psycopg://invigilator:dev_password_change_in_production@localhost:5432/study_invigilator
+    JWT_SECRET=generate_a_long_random_string_here
+    ENVIRONMENT=development
+
+  RUN A QUICK SANITY CHECK ONCE YOUR AI ASSISTANT HAS SCAFFOLDED
+  backend/main.py (with Postgres already running via docker compose):
+    cd backend
+    uvicorn main:app --reload --port 8000
+  Visit http://localhost:8000/docs -- FastAPI's automatic interactive
+  API documentation should load. If it does, your backend environment
+  is working.
+
+================================================================================
+STEP 4 -- SET UP THE FRONTEND
+================================================================================
+
+  npm create vite@latest frontend -- --template react
+  cd frontend
+  npm install
+  npm install axios recharts               # HTTP client + charts
+  npm install -D tailwindcss postcss autoprefixer
+  npx tailwindcss init -p
+
+  npm run dev
+  Visit http://localhost:5173 -- you should see the default Vite/React
+  starter page. Once your AI assistant builds out the real dashboard
+  (Phase G), this is where it will run during development.
+
+================================================================================
+STEP 5 -- CONFIRM THE PIECES CAN TALK TO EACH OTHER
+================================================================================
+
+  With the backend running on :8000 and the frontend dev server on
+  :5173, add a proxy or CORS config so the frontend can call the backend
+  API during development (your AI assistant should set this up as part
+  of Phase C/G, but the quick version is enabling CORS for
+  http://localhost:5173 in the FastAPI app, or adding a Vite proxy rule
+  for /api -> http://localhost:8000).
+
+  Once the local watcher exists (Phase C onward), test it can reach the
+  backend:
+    python watcher/run_watcher.py --backend-url http://localhost:8000
+  and confirm a StateEvent row appears in Postgres (you can inspect it
+  quickly with `docker exec -it study_invigilator_db psql -U invigilator
+  -d study_invigilator -c "select * from state_events order by
+  timestamp desc limit 5;"`).
+
+================================================================================
+COMMON SETUP ISSUES
+================================================================================
+
+  "MediaPipe fails to import / segfaults"
+    -> Usually a Python version mismatch. Confirm python --version is
+       3.10 or 3.11 inside your activated venv.
+
+  "OpenCV opens a black/frozen camera feed"
+    -> Another application (a video call app, another script) may be
+       holding the camera. Close other apps using the webcam.
+
+  "CORS errors in the browser console"
+    -> The frontend and backend are on different ports during dev,
+       which the browser treats as different origins. Confirm the
+       FastAPI CORSMiddleware allows http://localhost:5173, or use a
+       Vite dev-server proxy instead of calling the backend directly.
+
+  "PyTorch install is huge / slow"
+    -> You almost certainly don't need CUDA packages for this project.
+       Use the CPU-only index URL shown in Step 2 -- it's a much smaller
+       download and matches what you'll actually deploy (the model runs
+       on a student's laptop CPU, not a training GPU).
+
+================================================================================
+NEXT: see 02_TRAINING_GUIDE.txt to train the temporal model, then
+03_DEPLOYMENT_GUIDE.txt to get the shared dashboard live on a public URL.
+================================================================================

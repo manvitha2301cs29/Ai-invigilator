@@ -1,0 +1,216 @@
+================================================================================
+DEPLOYMENT GUIDE
+AI Study Invigilator
+================================================================================
+
+READ THIS FIRST: WHAT "DEPLOYMENT" MEANS FOR THIS PROJECT
+  Because this system is split into a LOCAL WATCHER (runs on each
+  student's own machine, owns the webcam) and a SHARED WEB DASHBOARD
+  (one public URL, everyone's data lives there) -- see Section 12 of
+  AI_Study_Invigilator_Project.txt -- "deployment" actually means TWO
+  separate things:
+    1. Deploying the backend + frontend to a public server, so anyone
+       with the link can open the dashboard, create an account, plan
+       target blocks, and view their history.
+    2. Distributing the local watcher so each student can run it on
+       their own machine and have it report to that same public
+       backend.
+  Do not try to make the webcam-watching part happen "on the website"
+  itself -- that's the exact browser-backgrounding limitation this
+  architecture exists to avoid. The website shows data; the watcher
+  produces it.
+
+RECOMMENDED SCOPE FOR A FIRST WORKING VERSION
+  Build in this order, and don't jump ahead:
+    1. Get the watcher running via plain `python run_watcher.py` on
+       YOUR OWN machine (Phase C of the master coding prompt). This is
+       what proves the whole pipeline works end to end.
+    2. Deploy the dashboard publicly (Part 1 below) so it's reachable
+       by anyone with the link, showing live data from your own
+       watcher. This alone satisfies "shareable link" for a demo,
+       professor review, or portfolio -- the dashboard being public and
+       the watcher running on one machine are not in conflict.
+    3. Only invest in PyInstaller packaging (Part 2, Option B) if you
+       have time left after the core system works end to end. It's
+       valuable polish -- it's what would let a classmate or professor
+       run their own watcher against your deployed dashboard -- but it's
+       additive, not required for the core project to be complete,
+       demoable, or gradeable. Don't let packaging work block you from
+       reaching a working Phase D/E/F.
+  Part 3 of this guide (below) expands on this as an explicitly stated,
+  legitimate scope cut -- not a shortcut to feel apologetic about.
+  produces it.
+
+================================================================================
+PART 1 -- DEPLOYING THE SHARED WEB DASHBOARD
+================================================================================
+
+RECOMMENDED PLATFORMS FOR A STUDENT PROJECT
+  Railway or Render are both good fits: both support deploying a FastAPI
+  backend directly from a GitHub repository (auto-detecting a
+  Dockerfile or a requirements.txt), both offer a managed PostgreSQL
+  database you can attach, and both give you a public HTTPS URL
+  automatically with no separate domain purchase required. Either is a
+  reasonable choice; the steps below are written generically and note
+  where a platform-specific step is needed.
+
+STEP 1 -- POINT AT A PRODUCTION POSTGRES INSTANCE
+  You're already running PostgreSQL locally via Docker from Phase C
+  onward (see README_PHASE_C.txt) -- this step is NOT a database
+  migration, just pointing your existing Postgres-based backend at a
+  production database instead of your local Docker container. Since
+  you built against Postgres from the start, there's no schema
+  conversion or SQLite-specific quirks to worry about here.
+  Provision a managed Postgres instance from your chosen platform
+  (Railway and Render both offer this as an add-on when you create your
+  project) and set DATABASE_URL as an environment variable on the
+  deployed backend -- never hardcode it in source:
+    DATABASE_URL=postgresql+psycopg://user:password@host:5432/dbname
+
+STEP 2 -- CONTAINERIZE THE BACKEND
+  Create backend/Dockerfile:
+
+    FROM python:3.11-slim
+    WORKDIR /app
+    COPY requirements.txt .
+    RUN pip install --no-cache-dir -r requirements.txt
+    COPY . .
+    EXPOSE 8000
+    CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+  Note this Dockerfile does NOT need OpenCV, MediaPipe, or PyTorch's
+  full training dependencies -- the backend never touches the webcam or
+  trains models, it only serves the API, talks to Postgres, and calls
+  the Claude API. Keep backend/requirements.txt lean (fastapi, uvicorn,
+  sqlalchemy, psycopg[binary], pydantic, anthropic, python-jose,
+  passlib, websockets) so your deployed image builds fast and stays
+  small.
+
+STEP 3 -- DEPLOY THE BACKEND
+  Push your repository to GitHub, then either:
+    - Railway: railway login, railway init, railway up (or connect the
+      GitHub repo through the Railway dashboard for auto-deploy on
+      every push)
+    - Render: create a new "Web Service," connect your GitHub repo,
+      point it at backend/Dockerfile, set environment variables
+      (ANTHROPIC_API_KEY, DATABASE_URL, JWT_SECRET) in the dashboard
+  Either platform gives you a public URL like
+  https://your-app-name.up.railway.app or https://your-app-name.onrender.com
+  once the deploy succeeds. Visit <that-url>/docs to confirm the API is
+  live, the same way you checked it locally.
+
+STEP 4 -- BUILD AND DEPLOY THE FRONTEND
+  Build a production bundle:
+    cd frontend
+    npm run build
+  This produces a static frontend/dist folder. Deploy it either:
+    - As a static site on the SAME platform (Railway and Render both
+      support static site hosting alongside your backend service), or
+    - On a dedicated static host like Vercel or Netlify, which are
+      built specifically for this and have generous free tiers well
+      suited to a student project -- connect your GitHub repo, point
+      the build command at npm run build and the output directory at
+      dist, and set an environment variable pointing the frontend at
+      your deployed backend URL (e.g. VITE_API_URL=https://your-
+      backend-url).
+
+STEP 5 -- WIRE UP HTTPS + CORS CORRECTLY
+  Both Railway/Render and Vercel/Netlify give you HTTPS automatically --
+  don't try to manage TLS certificates yourself for a project this size.
+  On the backend, update your CORS configuration to allow requests from
+  your deployed frontend's actual domain (not just localhost anymore):
+    allow_origins=["https://your-frontend-domain.com"]
+  WebSocket connections (used for the live status view) need the same
+  domain to be allowed, and must use wss:// (secure WebSocket) once
+  everything is served over HTTPS -- most frontend WebSocket client
+  libraries handle this automatically if you construct the URL from
+  window.location.protocol, but confirm this explicitly since a silent
+  ws:// vs wss:// mismatch is a common deployment bug.
+
+AT THIS POINT: anyone with your frontend URL can open the dashboard,
+create an account, and plan target blocks. This satisfies "everyone
+with the link can access this" for the dashboard half of the system.
+
+================================================================================
+PART 2 -- DISTRIBUTING THE LOCAL WATCHER
+================================================================================
+
+This is the half that needs to run ON each student's machine. There is
+no way to "deploy" webcam access to a shared server -- it has to run
+locally, by design (see Section 12).
+
+OPTION A -- RUN VIA PYTHON DIRECTLY (fastest to set up, best while you're
+  still developing/demoing)
+  Package watcher/ with its own requirements.txt and a short README:
+    git clone <your-repo>
+    cd ai-study-invigilator/watcher
+    python3 -m venv venv && source venv/bin/activate
+    pip install -r requirements.txt
+    python run_watcher.py --backend-url https://your-backend-url --token <their-account-token>
+  The --token (or a login prompt on first run) is what associates this
+  particular watcher's reports with the correct user account on the
+  shared dashboard -- generate this from the account settings page on
+  the dashboard once auth is built.
+
+OPTION B -- PACKAGE AS A SINGLE EXECUTABLE (better for non-technical
+  users, e.g. if you want a professor or classmate to try it without
+  installing Python)
+  Use PyInstaller:
+    pip install pyinstaller
+    cd watcher
+    pyinstaller --onefile --name study-invigilator-watcher run_watcher.py
+  This produces a single executable in watcher/dist/ that bundles the
+  Python interpreter and dependencies. Distribute this file (it will be
+  fairly large, likely 200MB+ once MediaPipe and PyTorch are bundled --
+  this is normal and expected for this kind of packaged CV/ML app) via
+  a direct download link from your dashboard's "Start Monitoring" page,
+  or attach it to a GitHub Release for your repository.
+  Test the packaged executable on a clean machine (or at minimum a
+  fresh user account on your own machine) before distributing it --
+  PyInstaller bundling issues are much easier to catch before a
+  professor or classmate hits them.
+
+CONNECTING THE TWO
+  On first run, the watcher should prompt for (or accept as a CLI flag)
+  the backend URL and an auth token tied to the user's dashboard
+  account. Store this locally in a small config file (e.g.
+  ~/.study-invigilator/config.json) so subsequent runs don't need it
+  re-entered. The dashboard's onboarding flow (Phase G in the master
+  coding prompt) should make this handoff clear: "1. Create an account
+  here. 2. Download the watcher. 3. Run it with the code shown below."
+
+================================================================================
+PART 3 -- THIS IS THE DEFAULT PATH, NOT A FALLBACK
+================================================================================
+
+To be direct: Part 3 isn't a compromise to feel behind about. Per the
+"Recommended scope" note at the top of this file, running the watcher
+locally on YOUR OWN machine while the dashboard is fully public is the
+intended default for a first working version, not a shortcut. State
+this scope plainly in your README and any demo -- "the watcher currently
+runs locally / single-user; packaged multi-user distribution (Part 2,
+Option B) is a next step" -- rather than implying broader distribution
+already works. This is a completely legitimate scope statement: it shows
+you understand the difference between "this works for me" and "this
+works for anyone," which is itself a mark of engineering maturity worth
+mentioning in a report or interview.
+
+================================================================================
+POST-DEPLOYMENT CHECKLIST
+================================================================================
+  [ ] Backend /docs loads over HTTPS at the public URL
+  [ ] Frontend loads and can successfully call the backend API
+      (check the browser network tab for failed requests, especially
+      CORS errors)
+  [ ] WebSocket live-status connection succeeds over wss://
+  [ ] A test account can be created and can plan a target block
+  [ ] The local watcher (Option A or B) successfully authenticates and
+      a StateEvent appears in the deployed Postgres database, not just
+      locally
+  [ ] ANTHROPIC_API_KEY and JWT_SECRET are set as environment variables
+      on the platform, NOT committed anywhere in the repository
+  [ ] .env and any raw video/dataset files are in .gitignore
+  [ ] The deployed dashboard, opened fresh with no watcher running,
+      degrades gracefully (shows historical data / planning UI, not a
+      broken live-status screen)
+================================================================================

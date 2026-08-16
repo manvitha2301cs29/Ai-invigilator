@@ -1,0 +1,191 @@
+================================================================================
+AI STUDY INVIGILATOR -- HELPER COMMANDS (ONE SHARED VENV, assume nothing
+installed yet)
+================================================================================
+Everything below uses a SINGLE virtual environment at the project root for
+all phases (A-H). Put the requirements.txt I gave you at the project root
+(same folder that contains phase_a/, phase_b/, ... phase_h/, docs/) before
+starting.
+
+--------------------------------------------------------------------------
+0) ONE-TIME SYSTEM INSTALLS
+--------------------------------------------------------------------------
+
+  # Python 3.10 or 3.11 -- REQUIRED (MediaPipe/PyTorch aren't reliable on
+  # 3.13+). Check what you have:
+  python3 --version
+
+  # If you don't have 3.10/3.11:
+  #   Ubuntu/Debian:
+  sudo apt update && sudo apt install -y python3.11 python3.11-venv python3-pip
+  #   macOS (Homebrew):
+  brew install python@3.11
+  #   Windows: install 3.11 from python.org, check "Add python.exe to PATH"
+
+  # Git
+  sudo apt install -y git          # Ubuntu/Debian
+  brew install git                 # macOS
+  # Windows: https://git-scm.com/download/win
+
+  # Node.js 20 LTS (only needed for phase_g's React frontend)
+  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+  # restart terminal, then:
+  nvm install 20 && nvm use 20
+  node --version      # should print v20.x
+
+  # Docker Desktop (needed for Postgres, used by phase_c and phase_g)
+  # Install from https://www.docker.com/products/docker-desktop/
+  docker --version
+  docker compose version
+
+  # Anthropic API key (needed for phase_g's LLM phrasing layer):
+  #   get one at https://console.anthropic.com
+
+--------------------------------------------------------------------------
+1) CREATE THE ONE SHARED VENV (do this once, at the project root)
+--------------------------------------------------------------------------
+  cd ai-study-invigilator          # your project root, containing phase_a etc.
+
+  python3.11 -m venv venv
+ .\venv\Scripts\Activate.ps1        # Windows: venv\Scripts\activate
+
+  pip install --upgrade pip
+  pip install -r requirements.txt  # the combined file, at project root
+
+  # From now on, in every NEW terminal you open, just run:
+  #   source venv/bin/activate     (Windows: venv\Scripts\activate)
+  # before running anything below. No per-phase installs needed.
+
+--------------------------------------------------------------------------
+2) DOWNLOAD MEDIAPIPE MODELS + SHARE THEM ACROSS PHASES (one-time)
+--------------------------------------------------------------------------
+  cd phase_a
+  python download_models.py
+  cd ..
+
+  # phase_c/watcher and phase_h both need these same model files:
+  cp -r phase_a/models phase_c/watcher/models
+  # Windows: xcopy /E /I phase_a\models phase_c\watcher\models
+
+--------------------------------------------------------------------------
+3) RUNNING EACH PHASE (venv already active from step 1)
+--------------------------------------------------------------------------
+
+  PHASE A -- webcam signal check
+    cd phase_a
+    python signal_check.py
+    cd ..
+
+  PHASE B -- feature extraction tests
+    cd phase_b
+    pytest tests/test_extractor.py -v
+    cd ..
+
+  PHASE C -- backend (terminal 1)
+    cd phase_c/backend
+    cp .env.example .env             # Windows: copy .env.example .env
+    # edit .env: fill in DATABASE_URL, ANTHROPIC_API_KEY, JWT_SECRET
+    docker compose up -d             # starts Postgres
+    uvicorn main:app --reload --port 8000
+    # visit http://localhost:8000/docs -- leave this running
+    # create a watcher token by registering a user with the backend
+    # example (PowerShell):
+    #   curl.exe -X POST http://localhost:8000/users `
+    #     -H "Content-Type: application/json" `
+    #     -d '{"name":"Test User","email":"you@example.com","password":"secret"}'
+    # alternative PowerShell native command:
+    #   Invoke-RestMethod -Uri http://localhost:8000/users -Method Post -ContentType 'application/json' -Body '{"name":"Test User","email":"you@example.com","password":"secret"}'
+    # the response includes watcher_token
+    # use that token in the watcher command below
+    # 
+    #  3f0913f9c8c34f7e03e2b46e5e28c2f9
+
+  PHASE C -- watcher (terminal 2, same venv, activate it again in this terminal)
+    source venv/bin/activate         # from project root
+    cd phase_c/watcher
+    python run_watcher.py --backend-url http://localhost:8000 --token <your_token>
+    cd ../..
+
+  PHASE C -- tests
+    cd phase_c
+    pytest tests/test_monitor.py -v
+    cd ..
+
+  PHASE D -- temporal classifier
+    cd phase_d
+    pytest tests/ -v
+    # optional real-data training, see phase_d/README.txt for flags:
+    #   python experiments/train_temporal_model.py --model gru --dataset synthetic ...
+    cd ..
+
+  PHASE E -- fatigue autoencoder
+    cd phase_e
+    pytest tests/ -v
+    cd ..
+
+  PHASE F -- recommendation engine (no DB/docker needed for tests)
+    cd phase_f
+    pytest tests/ -v
+    cd ..
+
+  PHASE G -- backend (terminal 3; needs phase_c's Postgres already running)
+    source venv/bin/activate
+    cd phase_g/backend
+    cp .env.example .env             # Windows: copy .env.example .env
+    # edit .env: DATABASE_URL (same Postgres as phase_c), ANTHROPIC_API_KEY,
+    # JWT_SECRET, FRONTEND_ORIGIN
+    pytest tests/ -v
+    uvicorn main:app --reload --port 8000
+    # visit http://localhost:8000/docs -- shows phase_c AND phase_g endpoints
+    cd ../..
+
+  PHASE G -- frontend (terminal 4; separate from the Python venv, uses npm)
+    cd phase_g/frontend
+    npm install
+    cp .env.example .env.local       # Windows: copy .env.example .env.local
+    npm run dev
+    # visit http://localhost:5173
+    cd ../..
+
+  PHASE H (optional) -- package the watcher into one executable
+    source venv/bin/activate
+    cd phase_c/watcher
+    # Linux/macOS:
+    pyinstaller --onefile --name study-invigilator-watcher \
+      --add-data "models:models" run_watcher.py
+    # Windows (note ';' not ':'):
+    pyinstaller --onefile --name study-invigilator-watcher ^
+      --add-data "models;models" run_watcher.py
+    # OR use the wrapper script instead:
+    cd ../../phase_h
+    python build_exe.py
+    cd ..
+    # Result: phase_h/dist/study-invigilator-watcher (~140-200+ MB, normal)
+
+--------------------------------------------------------------------------
+QUICK REFERENCE
+--------------------------------------------------------------------------
+  One venv for everything:     source venv/bin/activate   (do this per terminal)
+  Needs Docker (Postgres):     phase_c backend, phase_g backend
+  Needs ANTHROPIC_API_KEY:     phase_g backend (falls back to plain text if
+                                unset/API call fails -- won't crash)
+  Needs a webcam:               phase_a, phase_c/watcher, phase_h
+  Needs npm (separate from venv): phase_g/frontend only
+  Pure Python, venv only:       phase_b, phase_d, phase_e, phase_f
+
+--------------------------------------------------------------------------
+COMMON ISSUES
+--------------------------------------------------------------------------
+  MediaPipe import fails/segfaults  -> confirm `python --version` inside the
+                                        activated venv is 3.10 or 3.11
+  Camera prints "Camera OK: False"  -> check OS camera permissions, close
+                                        other apps using the webcam
+  CORS errors in browser console    -> confirm FRONTEND_ORIGIN in phase_g's
+                                        .env matches http://localhost:5173
+  PyTorch install huge/slow         -> not using CUDA is fine/expected here;
+                                        if pip pulls a GPU build anyway:
+                                        pip install torch --index-url https://download.pytorch.org/whl/cpu
+  "command not found: pytest" etc.  -> you forgot to activate the venv in
+                                        this terminal -- run:
+                                        source venv/bin/activate
+================================================================================

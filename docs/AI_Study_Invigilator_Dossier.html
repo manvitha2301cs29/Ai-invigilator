@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Study Invigilator — Project Dossier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#14171C;
+  --paper:#F7F5F0;
+  --paper-dim:#EFEBE2;
+  --slate:#3D4451;
+  --slate-soft:#8B93A1;
+  --line:#D9D4C7;
+  --amber:#D98E2E;
+  --amber-dim:#F0DCB8;
+  --green:#4A7C59;
+  --green-dim:#DCE8DF;
+  --red:#B4543A;
+  --white:#FFFFFF;
+  --serif:'Source Serif 4', Georgia, serif;
+  --mono:'JetBrains Mono', 'Courier New', monospace;
+  --sans:'Inter', -apple-system, sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--sans);
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--amber-dim);color:var(--ink);}
+
+/* ---------- utility ---------- */
+.wrap{max-width:920px;margin:0 auto;padding:0 32px;}
+.mono{font-family:var(--mono);}
+.eyebrow{
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+  color:var(--slate-soft);
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.eyebrow::before{
+  content:"";
+  width:16px;height:1px;
+  background:var(--slate-soft);
+  display:inline-block;
+}
+a{color:inherit;}
+
+/* ---------- stamped header ---------- */
+.masthead{
+  border-bottom:1px solid var(--ink);
+  padding:22px 0;
+  position:sticky;
+  top:0;
+  background:rgba(247,245,240,0.94);
+  backdrop-filter:blur(6px);
+  z-index:100;
+}
+.masthead .wrap{
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  max-width:1040px;
+}
+.masthead-mark{
+  font-family:var(--mono);
+  font-size:13px;
+  font-weight:600;
+  letter-spacing:0.06em;
+}
+.masthead-mark span{color:var(--amber);}
+.masthead-tag{
+  font-family:var(--mono);
+  font-size:11px;
+  color:var(--slate-soft);
+  letter-spacing:0.04em;
+}
+@media (max-width:640px){ .masthead-tag{display:none;} }
+
+/* ---------- hero ---------- */
+.hero{
+  max-width:1040px;
+  margin:0 auto;
+  padding:88px 32px 64px;
+  border-bottom:1px solid var(--line);
+}
+.hero .kicker{
+  font-family:var(--mono);
+  font-size:12px;
+  letter-spacing:0.16em;
+  text-transform:uppercase;
+  color:var(--amber);
+  margin-bottom:22px;
+}
+.hero h1{
+  font-family:var(--serif);
+  font-weight:600;
+  font-size:clamp(38px,6vw,64px);
+  line-height:1.05;
+  letter-spacing:-0.01em;
+  max-width:820px;
+}
+.hero h1 em{
+  font-style:italic;
+  color:var(--slate);
+}
+.hero .sub{
+  margin-top:26px;
+  font-size:19px;
+  color:var(--slate);
+  max-width:640px;
+  line-height:1.55;
+}
+.hero-meta{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:0;
+  margin-top:56px;
+  border-top:1px solid var(--line);
+  padding-top:22px;
+}
+.hero-meta div{
+  padding-right:24px;
+  border-right:1px solid var(--line);
+}
+.hero-meta div:last-child{border-right:none;}
+.hero-meta .label{
+  font-family:var(--mono);
+  font-size:10px;
+  letter-spacing:0.1em;
+  text-transform:uppercase;
+  color:var(--slate-soft);
+  margin-bottom:8px;
+}
+.hero-meta .value{
+  font-size:14.5px;
+  color:var(--ink);
+  font-weight:500;
+  line-height:1.4;
+}
+@media (max-width:760px){
+  .hero-meta{grid-template-columns:1fr 1fr;row-gap:22px;}
+  .hero-meta div{border-right:none;}
+}
+
+/* ---------- section shell ---------- */
+section.exhibit{
+  max-width:1040px;
+  margin:0 auto;
+  padding:72px 32px;
+  border-bottom:1px solid var(--line);
+}
+section.exhibit:last-of-type{border-bottom:none;}
+.exhibit-head{
+  display:flex;
+  align-items:baseline;
+  gap:18px;
+  margin-bottom:36px;
+}
+.exhibit-num{
+  font-family:var(--mono);
+  font-size:13px;
+  color:var(--amber);
+  font-weight:600;
+  white-space:nowrap;
+}
+.exhibit-head h2{
+  font-family:var(--serif);
+  font-size:clamp(26px,3.4vw,34px);
+  font-weight:600;
+  letter-spacing:-0.01em;
+}
+.exhibit-intro{
+  font-size:16.5px;
+  color:var(--slate);
+  max-width:700px;
+  margin-bottom:32px;
+}
+.exhibit-body p{
+  font-size:15.5px;
+  color:var(--ink);
+  max-width:700px;
+  margin-bottom:16px;
+}
+.exhibit-body p.dim{color:var(--slate);}
+.exhibit-body strong{font-weight:600;}
+.exhibit-body ul, .exhibit-body ol{
+  margin:16px 0 20px 0;
+  padding-left:22px;
+  max-width:700px;
+}
+.exhibit-body li{
+  font-size:15.5px;
+  margin-bottom:9px;
+  color:var(--ink);
+}
+.exhibit-body li strong{color:var(--ink);}
+.callout{
+  border-left:2px solid var(--red);
+  background:#FBF1EC;
+  padding:16px 20px;
+  font-size:14.5px;
+  color:#7A3A26;
+  max-width:700px;
+  margin:24px 0;
+  line-height:1.6;
+}
+.callout strong{display:block;font-family:var(--mono);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;color:var(--red);}
+
+/* ---------- tag chips ---------- */
+.chip-row{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0 8px;}
+.chip{
+  font-family:var(--mono);
+  font-size:11.5px;
+  padding:6px 12px;
+  border:1px solid var(--line);
+  border-radius:3px;
+  color:var(--slate);
+  background:var(--white);
+}
+
+/* ---------- responsive tables ---------- */
+.tbl{width:100%;border-collapse:collapse;margin:20px 0 28px;font-size:14px;}
+.tbl th{
+  text-align:left;
+  font-family:var(--mono);
+  font-size:10.5px;
+  letter-spacing:0.06em;
+  text-transform:uppercase;
+  color:var(--slate-soft);
+  padding:10px 14px 10px 0;
+  border-bottom:1px solid var(--ink);
+}
+.tbl td{
+  padding:12px 14px 12px 0;
+  border-bottom:1px solid var(--line);
+  vertical-align:top;
+  color:var(--ink);
+}
+.tbl td.k{font-weight:600;white-space:nowrap;}
+.tbl td.dim, .tbl td span.dim{color:var(--slate);}
+
+/* ---------- layer pipeline diagram ---------- */
+.pipeline{
+  display:flex;
+  flex-direction:column;
+  gap:0;
+  margin:32px 0;
+  border:1px solid var(--line);
+  background:var(--white);
+}
+.pipe-row{
+  display:grid;
+  grid-template-columns:56px 1fr;
+  border-bottom:1px solid var(--line);
+}
+.pipe-row:last-child{border-bottom:none;}
+.pipe-num{
+  font-family:var(--mono);
+  font-size:12px;
+  color:var(--amber);
+  font-weight:600;
+  padding:18px 0 18px 18px;
+  border-right:1px solid var(--line);
+  display:flex;
+  align-items:flex-start;
+  padding-top:20px;
+}
+.pipe-content{padding:18px 20px;}
+.pipe-title{font-weight:600;font-size:14.5px;margin-bottom:4px;}
+.pipe-desc{font-size:13.5px;color:var(--slate);}
+.pipe-tools{
+  font-family:var(--mono);
+  font-size:11px;
+  color:var(--slate-soft);
+  margin-top:8px;
+}
+.pipe-arrow{
+  text-align:center;
+  font-family:var(--mono);
+  color:var(--slate-soft);
+  font-size:13px;
+  padding:2px 0;
+}
+
+/* ---------- state grid ---------- */
+.state-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:1px;
+  background:var(--line);
+  border:1px solid var(--line);
+  margin:24px 0;
+}
+.state-card{
+  background:var(--white);
+  padding:20px 16px;
+}
+.state-dot{width:9px;height:9px;border-radius:50%;margin-bottom:12px;}
+.state-card h4{font-family:var(--mono);font-size:12.5px;letter-spacing:0.02em;margin-bottom:8px;}
+.state-card p{font-size:12.5px;color:var(--slate);line-height:1.5;}
+@media (max-width:700px){.state-grid{grid-template-columns:1fr 1fr;}}
+
+/* ================= DEMO WIDGET ================= */
+.monitor-shell{
+  border:1px solid var(--ink);
+  background:var(--ink);
+  margin:32px 0;
+  overflow:hidden;
+}
+.monitor-topbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:12px 18px;
+  border-bottom:1px solid #2A2F38;
+}
+.monitor-topbar .dots{display:flex;gap:6px;}
+.monitor-topbar .dots span{width:8px;height:8px;border-radius:50%;background:#3D4451;}
+.monitor-title{
+  font-family:var(--mono);
+  font-size:11px;
+  color:#8B93A1;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+}
+.monitor-live{
+  font-family:var(--mono);
+  font-size:10.5px;
+  color:var(--amber);
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--amber);animation:pulse 1.6s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.25;}}
+
+.monitor-body{padding:28px;color:var(--paper);}
+.monitor-grid{
+  display:grid;
+  grid-template-columns:1.1fr 1fr;
+  gap:28px;
+}
+@media (max-width:700px){.monitor-grid{grid-template-columns:1fr;}}
+
+.block-info{
+  font-family:var(--mono);
+  font-size:11px;
+  color:#8B93A1;
+  letter-spacing:0.06em;
+  text-transform:uppercase;
+  margin-bottom:6px;
+}
+.block-range{font-family:var(--mono);font-size:20px;color:var(--paper);margin-bottom:22px;}
+.block-range span{color:var(--slate-soft);}
+
+.status-line{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:22px;
+}
+.status-led{width:10px;height:10px;border-radius:50%;background:var(--green);transition:background .3s;}
+.status-text{font-family:var(--mono);font-size:14px;font-weight:600;letter-spacing:0.02em;transition:color .3s;}
+.status-sub{font-size:12.5px;color:#8B93A1;margin-top:4px;}
+
+.timer-block{margin-bottom:22px;}
+.timer-label{font-family:var(--mono);font-size:10.5px;color:#8B93A1;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;}
+.timer-value{font-family:var(--mono);font-size:38px;font-weight:600;letter-spacing:-0.01em;line-height:1;}
+.timer-value.warn{color:var(--amber);}
+.timer-value.ok{color:var(--paper);}
+
+.away-stopwatch{
+  border:1px dashed #3D4451;
+  padding:14px 16px;
+  margin-top:14px;
+  display:none;
+}
+.away-stopwatch.active{display:block;border-color:var(--amber);}
+.away-stopwatch .aw-label{font-family:var(--mono);font-size:10.5px;color:var(--amber);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:4px;}
+.away-stopwatch .aw-value{font-family:var(--mono);font-size:22px;color:var(--amber);}
+
+.notif-feed{
+  border-top:1px solid #2A2F38;
+  padding-top:16px;
+  margin-top:6px;
+  min-height:60px;
+}
+.notif-feed-label{font-family:var(--mono);font-size:10px;color:#8B93A1;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px;}
+.notif-item{
+  font-size:13px;
+  padding:10px 12px;
+  background:#1C2028;
+  border-left:2px solid var(--amber);
+  margin-bottom:8px;
+  color:#D9D4C7;
+  animation:slidein .3s ease;
+}
+@keyframes slidein{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
+.notif-empty{font-size:12.5px;color:#5A6270;font-style:italic;}
+
+.demo-controls{
+  display:flex;
+  gap:8px;
+  margin-top:22px;
+  flex-wrap:wrap;
+}
+.demo-btn{
+  font-family:var(--mono);
+  font-size:11.5px;
+  padding:9px 14px;
+  background:transparent;
+  border:1px solid #3D4451;
+  color:var(--paper);
+  cursor:pointer;
+  letter-spacing:0.02em;
+  transition:all .15s;
+}
+.demo-btn:hover{border-color:var(--amber);color:var(--amber);}
+.demo-btn.primary{background:var(--amber);border-color:var(--amber);color:var(--ink);font-weight:600;}
+.demo-btn.primary:hover{background:#C27E24;color:var(--ink);}
+.demo-btn:disabled{opacity:0.3;cursor:not-allowed;}
+
+.summary-panel{
+  border-top:1px solid #2A2F38;
+  margin-top:24px;
+  padding-top:20px;
+  display:none;
+}
+.summary-panel.show{display:block;}
+.summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:14px;}
+.summary-item .n{font-family:var(--mono);font-size:22px;font-weight:600;}
+.summary-item .l{font-family:var(--mono);font-size:10px;color:#8B93A1;letter-spacing:0.06em;text-transform:uppercase;margin-top:4px;}
+.verdict-box{
+  margin-top:18px;
+  padding:14px 16px;
+  background:#1C2028;
+  border-left:2px solid var(--amber);
+  font-size:13.5px;
+  line-height:1.6;
+  color:#D9D4C7;
+}
+.verdict-box .vt{font-family:var(--mono);font-size:10px;color:var(--amber);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;}
+
+.monitor-caption{
+  font-size:12.5px;
+  color:var(--slate);
+  margin-top:14px;
+  max-width:700px;
+  font-style:italic;
+}
+
+/* ---------- footer ---------- */
+footer{
+  max-width:1040px;
+  margin:0 auto;
+  padding:56px 32px 80px;
+}
+footer .fline{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding-top:24px;
+  border-top:1px solid var(--ink);
+  font-family:var(--mono);
+  font-size:11.5px;
+  color:var(--slate-soft);
+  flex-wrap:wrap;
+  gap:12px;
+}
+
+/* ---------- toc ---------- */
+.toc{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px 0;
+  margin-top:0;
+}
+.toc a{
+  font-family:var(--mono);
+  font-size:12px;
+  color:var(--slate);
+  text-decoration:none;
+  padding:7px 14px 7px 0;
+  border-right:1px solid var(--line);
+  margin-right:14px;
+}
+.toc a:last-child{border-right:none;}
+.toc a:hover{color:var(--amber);}
+</style>
+</head>
+<body>
+
+<div class="masthead">
+  <div class="wrap">
+    <div class="masthead-mark">AI STUDY <span>INVIGILATOR</span></div>
+    <div class="masthead-tag">PROJECT DOSSIER — REV. 1</div>
+  </div>
+</div>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="kicker">Deep Learning · Computer Vision · Applied Systems Design</div>
+  <h1>A system that watches <em>how</em> you study,<br>not <em>whether</em> you looked at a camera.</h1>
+  <p class="sub">A privacy-first invigilation system for self-study: it holds students to the time blocks they set for themselves, times every unexplained absence automatically, and learns — from their own history — what schedule they can actually sustain.</p>
+
+  <div class="hero-meta">
+    <div><div class="label">Domain</div><div class="value">Computer Vision + Temporal Deep Learning</div></div>
+    <div><div class="label">Core models</div><div class="value">GRU classifier, Autoencoder, landmark-based gaze regressor</div></div>
+    <div><div class="label">Benchmark</div><div class="value">DAiSEE (academic engagement dataset)</div></div>
+    <div><div class="label">Principle</div><div class="value">No raw video ever stored — features only</div></div>
+  </div>
+</div>
+
+<!-- TOC -->
+<section class="exhibit" style="padding-top:40px;padding-bottom:40px;">
+  <div class="toc">
+    <a href="#problem">01 Problem</a>
+    <a href="#idea">02 Core Idea</a>
+    <a href="#pipeline">03 Pipeline</a>
+    <a href="#states">04 State Model</a>
+    <a href="#falsepositives">05 False Positives</a>
+    <a href="#demo">06 Live Demo</a>
+    <a href="#dl">07 Deep Learning</a>
+    <a href="#data">08 Dataset</a>
+    <a href="#stack">09 Stack</a>
+    <a href="#deployment">10 Deployment</a>
+    <a href="#roadmap">11 Roadmap</a>
+    <a href="#eval">12 Evaluation</a>
+  </div>
+</section>
+
+<!-- 01 PROBLEM -->
+<section class="exhibit" id="problem">
+  <div class="exhibit-head"><span class="exhibit-num">EXHIBIT 01</span><h2>The problem</h2></div>
+  <p class="exhibit-intro">Most students who struggle with study consistency aren't unmotivated — they're undermonitored. They sit down intending to focus for a fixed block, and drift, without ever finding out how much time was actually lost, or to what.</p>
+  <div class="exhibit-body">
+    <p>Generic advice — "take a break every 25 minutes" — isn't personalized, and it isn't earned. A student has no objective record of their own attention pattern to act on, so every piece of advice feels arbitrary, and arbitrary advice is easy to ignore.</p>
+    <p><strong>This project is built for a specific person:</strong> motivated, but inconsistent. Someone who wants an honest, slightly strict observer — not a mental-health app, not a gamified streak-counter, something closer to an exam invigilator who happens to also be their tutor.</p>
+    <div class="callout">
+      <strong>Explicit guardrail</strong>
+      The system never claims to detect emotion or mental state. It classifies only observable signals — face orientation, gaze direction, posture, presence, movement, and coarse activity — and reports them as estimates with uncertainty, never as facts about what a student is thinking or feeling.
+    </div>
+  </div>
+</section>
+
+<!-- 02 CORE IDEA -->
+<section class="exhibit" id="idea">
+  <div class="exhibit-head"><span class="exhibit-num">EXHIBIT 02</span><h2>The core idea</h2></div>
+  <p class="exhibit-intro">A student sets a target study block. The system holds them to it — in real time — and reports back in numbers, not vibes.</p>
+  <div class="exhibit-body">
+    <p><strong>1. Plan.</strong> The student sets a block: e.g. 12:00 to 13:30, "no-break study session." This is the target the whole session gets measured against.</p>
+    <p><strong>2. Watch.</strong> While the block is active, the webcam and (optionally) OS activity signals are continuously classified into a behavioral state — Engaged, Idle-present, Distracted-present, or Away.</p>
+    <p><strong>3. Time every absence.</strong> The moment the student leaves the desk, a stopwatch starts automatically. It stops the instant they return. This is tracked separately from a break the student explicitly declares.</p>
+    <p><strong>4. Intervene, gently, live.</strong> If an absence runs long, the system nudges — softly at first, more directly if it continues — the way a strict-but-fair invigilator would, not a nagging app.</p>
+    <p><strong>5. Report, honestly.</strong> At the end of the block: how much time was actually worked, how much was on a declared break, and how much was simply lost.</p>
+    <p><strong>6. Learn the student, not a rulebook.</strong> Across weeks of blocks, the system compares the student's compliance trend against their <em>own</em> history — not a generic Pomodoro rule — and recommends whether to hold the schedule, shrink it, or extend it.</p>
+  </div>
+  <div class="chip-row">
+    <span class="chip">Target-block planning</span>
+    <span class="chip">Live engagement classification</span>
+    <span class="chip">Automatic away-stopwatch</span>
+    <span class="chip">Escalating live notifications</span>
+    <span class="chip">Compliance reporting</span>
+    <span class="chip">Personalized schedule recommendation</span>
+    <span class="chip">Zero raw-video storage</span>
+  </div>
+</section>
+
+<!-- 03 PIPELINE -->
+<section class="exhibit" id="pipeline">
+  <div class="exhibit-head"><span class="exhibit-num">EXHIBIT 03</span><h2>System pipeline</h2></div>
+  <p class="exhibit-intro">Eight layers, each independently testable. Raw pixels enter at the top; a phrased, personalized recommendation exits at the bottom. Nothing but numbers and short-lived frames cross between them.</p>
+
+  <div class="pipeline">
+    <div class="pipe-row">
+      <div class="pipe-num">01</div>
+      <div class="pipe-content">
+        <div class="pipe-title">Perception</div>
+        <div class="pipe-desc">Webcam frame → face detection, 468-point facial landmarks, body pose landmarks, presence detection, phone detection, second-person detection.</div>
+        <div class="pipe-tools">MediaPipe Face Landmarker (2-face) + Pose Landmarker + Object Detector — all pretrained, not retrained</div>
+      </div>
+    </div>
+    <div class="pipe-row">
+      <div class="pipe-num">02</div>
+      <div class="pipe-content">
+        <div class="pipe-title">Feature engine</div>
+        <div class="pipe-desc">Landmarks → clean numeric vector: head yaw/pitch/roll, gaze direction, eyes-closed flag, posture angle, movement delta, face-present flag, optional activity signal — plus two derived features, a look-up cycle rate (separates note-taking from disengagement) and a per-student calibrated gaze envelope (separates wide-monitor movement from genuine distraction).</div>
+        <div class="pipe-tools">Deterministic geometry — solvePnP, custom feature functions</div>
+      </div>
+    </div>
+    <div class="pipe-row">
+      <div class="pipe-num">03</div>
+      <div class="pipe-content">
+        <div class="pipe-title">Temporal deep learning model</div>
+        <div class="pipe-desc">A sliding window of feature vectors → engagement state. GRU is the deployed model; LSTM and a Temporal Transformer are trained as comparison baselines. Trained on the cycle-rate and gaze-envelope features specifically so it learns real behavioral patterns instead of a naive "any non-forward gaze = distracted" shortcut. Sustained eyes-closed beyond ~6 minutes is a separate deterministic rule, not a learned class.</div>
+        <div class="pipe-tools">PyTorch — GRU (primary), LSTM, Transformer encoder (ablation)</div>
+      </div>
+    </div>
+    <div class="pipe-row">
+      <div class="pipe-num">04</div>
+      <div class="pipe-content">
+        <div class="pipe-title">Live monitoring & stopwatch engine</div>
+        <div class="pipe-desc">Consumes the live state stream. Runs the away-detection state machine, fires escalating notifications, accepts user-declared breaks.</div>
+        <div class="pipe-tools">Real-time state machine, OS/browser notification API</div>
+      </div>
+    </div>
+    <div class="pipe-row">
+      <div class="pipe-num">05</div>
+      <div class="pipe-content">
+        <div class="pipe-title">Session analytics</div>
+        <div class="pipe-desc">Smooths state jitter, detects unbroken work stretches, computes per-block summaries: worked time, distracted time, away time, break time, compliance %.</div>
+        <div class="pipe-tools">Pandas / NumPy over logged StateEvents</div>
+      </div>
+    </div>
+    <div class="pipe-row">
+      <div class="pipe-num">06</div>
+      <div class="pipe-content">
+        <div class="pipe-title">Recommendation engine</div>
+        <div class="pipe-desc">Deterministic, auditable rules over the student's own historical compliance trend — decides on_track / needs_shorter_blocks / needs_scheduled_breaks. No model here — just transparent thresholds.</div>
+        <div class="pipe-tools">Rules engine, fully unit-testable in isolation</div>
+      </div>
+    </div>
+    <div class="pipe-row">
+      <div class="pipe-num">07</div>
+      <div class="pipe-content">
+        <div class="pipe-title">LLM reasoning layer</div>
+        <div class="pipe-desc">Takes only the structured verdict and numbers from Layer 6 — never raw video or per-frame data — and phrases a grounded, tone-appropriate recommendation.</div>
+        <div class="pipe-tools">Claude API — phrasing only, never the source of a number</div>
+      </div>
+    </div>
+    <div class="pipe-row">
+      <div class="pipe-num">08</div>
+      <div class="pipe-content">
+        <div class="pipe-title">Dashboard & storage</div>
+        <div class="pipe-desc">Statistics and features only — never raw video — served to a web dashboard.</div>
+        <div class="pipe-tools">FastAPI, SQLite/PostgreSQL, React/Next.js or Streamlit</div>
+      </div>
+    </div>
+  </div>
+
+  <p class="exhibit-body dim" style="max-width:700px;font-size:14px;">Each layer can be built and tested with mocked input from the layer before it — the project is demoable at every milestone, not only at the end.</p>
+</section>
+
+<!-- 04 STATE MODEL -->
+<section class="exhibit" id="states">
+  <div class="exhibit-head"><span class="exhibit-num">EXHIBIT 04</span><h2>Behavioral state model</h2></div>
+  <p class="exhibit-intro">Four observable states, deliberately not a single "focused / not focused" binary — because "at the desk, not typing" and "not at the desk at all" are different problems that need different responses.</p>
+
+  <div class="state-grid">
+    <div class="state-card">
+      <div class="state-dot" style="background:var(--green);"></div>
+      <h4>ENGAGED</h4>
+      <p>Face present, gaze on-screen, recent input activity. The state that counts fully toward compliance.</p>
+    </div>
+    <div class="state-card">
+      <div class="state-dot" style="background:#7A8A99;"></div>
+      <h4>IDLE-PRESENT</h4>
+      <p>Face present, low movement, no recent typing. Reading or thinking — not penalized as distraction.</p>
+    </div>
+    <div class="state-card">
+      <div class="state-dot" style="background:var(--amber);"></div>
+      <h4>DISTRACTED-PRESENT</h4>
+      <p>Face present, gaze repeatedly off-screen, or active window doesn't match the study context.</p>
+    </div>
+    <div class="state-card">
+      <div class="state-dot" style="background:var(--red);"></div>
+      <h4>AWAY</h4>
+      <p>Face absent beyond a short grace period. Triggers the automatic stopwatch — handled as a deterministic rule, not a learned class.</p>
+    </div>
+  </div>
+
+  <p class="exhibit-body" style="max-width:700px;">A fifth, session-level label — <strong>fatigued-pattern</strong> — is produced separately by an anomaly-detection model comparing a student's recent behavior to their own baseline, not to a population norm. It is never claimed as a diagnosis of tiredness, only as a statistical deviation worth surfacing.</p>
+</section>
+
+<!-- 05 FALSE POSITIVE HANDLING -->
+<section class="exhibit" id="falsepositives">
+  <div class="exhibit-head"><span class="exhibit-num">EXHIBIT 05</span><h2>False-positive handling</h2></div>
+  <p class="exhibit-intro">A naive "gaze not on screen = distracted" rule would misfire on almost every real study session. Note-taking, thinking pauses, wide monitors, and brief conversations all have to be told apart from genuine disengagement — and the difference is never in a single frame, only in the pattern over time.</p>
+
+  <div class="callout" style="border-left-color:var(--slate);background:#EFF1EE;">
+    <strong style="color:var(--slate);">Governing principle</strong>
+    No state is decided from a single frame. Every flag requires a signal to persist past a duration threshold calibrated to what real studying looks like — not an idealized "always facing forward" assumption.
+  </div>
+
+  <table class="tbl">
+    <tr><th>Behavior</th><th>Flag?</th><th>Why</th></tr>
+    <tr><td class="k">Brief head-down glance</td><td style="color:var(--green);font-weight:600;">No</td><td class="dim">Under the note-taking window — too short to mean anything on its own.</td></tr>
+    <tr><td class="k">Head down, writing notes</td><td style="color:var(--green);font-weight:600;">No</td><td class="dim">Recognized by its look-down / look-up cycle — sustained down-pitch with periodic returns to the screen, not flat disengagement.</td></tr>
+    <tr><td class="k">Head turned — quick glance</td><td style="color:var(--green);font-weight:600;">No</td><td class="dim">Returns to on-screen within a second or two — a wide monitor, a phone glance, checking a noise.</td></tr>
+    <tr><td class="k">Head turned — talking to someone</td><td style="color:var(--amber);font-weight:600;">Yes</td><td class="dim">Held turned for a sustained duration — the hold, not the turn itself, is what's flagged.</td></tr>
+    <tr><td class="k">Wide/multi-monitor eye sweep</td><td style="color:var(--green);font-weight:600;">No</td><td class="dim">Falls inside a per-student calibrated gaze envelope, set once at first use — not a fixed universal angle.</td></tr>
+    <tr><td class="k">Eyes closed briefly, thinking</td><td style="color:var(--green);font-weight:600;">No</td><td class="dim">Normal cognitive behavior during problem-solving — flagging it would be an unsupported claim about mental state.</td></tr>
+    <tr><td class="k">Eyes closed 6+ minutes</td><td style="color:var(--red);font-weight:600;">Yes</td><td class="dim">Far outside any thinking-pause range. Worded as <em>"possible rest/sleep"</em> — an inference, never asserted as fact.</td></tr>
+    <tr><td class="k">Phone briefly passes through frame</td><td style="color:var(--green);font-weight:600;">No</td><td class="dim">Under the phone-visible duration floor — picked up and set back down, not sustained use.</td></tr>
+    <tr><td class="k">Phone held / visible, sustained</td><td style="color:var(--red);font-weight:600;">Yes</td><td class="dim">A direct, personalized warning — <em>"Don't use your phone, {name}"</em> — since a phone in frame has fewer innocent explanations than an ambiguous gaze signal.</td></tr>
+    <tr><td class="k">Second person briefly passes by</td><td style="color:var(--green);font-weight:600;">No</td><td class="dim">Under the second-person duration floor — someone walking past in the background, not sitting down.</td></tr>
+    <tr><td class="k">Second person present, sustained</td><td style="color:var(--red);font-weight:600;">Yes</td><td class="dim">A direct, personalized warning — <em>"Stay in a quiet environment, avoid talking to others, {name}"</em>. Known limitation: can't distinguish a study partner from a genuine distraction — flagged as an honest simplification, not solved.</td></tr>
+  </table>
+
+  <p class="exhibit-body dim" style="font-size:14px;">The look-down/look-up cycle rate and a per-user calibrated gaze envelope are computed in the Feature Engine (Exhibit 03, Layer 2) specifically so the temporal model learns these distinctions instead of a naive "any non-forward gaze is distraction" shortcut.</p>
+</section>
+
+<!-- 06 LIVE DEMO -->
+<section class="exhibit" id="demo">
+  <div class="exhibit-head"><span class="exhibit-num">EXHIBIT 06</span><h2>Interactive walkthrough</h2></div>
+  <p class="exhibit-intro">A simulated 90-second version of a real target block, using the exact state machine the backend will run. Press start, then try leaving the desk.</p>
+
+  <div class="monitor-shell">
+    <div class="monitor-topbar">
+      <div style="display:flex;align-items:center;gap:14px;">
+        <div class="dots"><span></span><span></span><span></span></div>
+        <div class="monitor-title">live_session_monitor.py</div>
+      </div>
+      <div class="monitor-live"><span class="live-dot"></span> <span id="liveLabel">STANDBY</span></div>
+    </div>
+
+    <div class="monitor-body">
+      <div class="block-info">Target Block</div>
+      <div class="block-range">12:00 <span>→</span> 13:30 <span>· planned 90 min (simulated at 1s = 1min)</span></div>
+
+      <div class="monitor-grid">
+        <div>
+          <div class="status-line">
+            <div class="status-led" id="statusLed"></div>
+            <div>
+              <div class="status-text" id="statusText">NOT STARTED</div>
+              <div class="status-sub" id="statusSub">Press "Start Block" to begin the simulation.</div>
+            </div>
+          </div>
+
+          <div class="timer-block">
+            <div class="timer-label">Elapsed / Target</div>
+            <div class="timer-value ok" id="elapsedTimer">00:00 / 90:00</div>
+          </div>
+
+          <div class="away-stopwatch" id="awayBox">
+            <div class="aw-label">⏱ Away Stopwatch — Running</div>
+            <div class="aw-value" id="awayTimer">00:00</div>
+          </div>
+
+          <div class="demo-controls">
+            <button class="demo-btn primary" id="btnStart">Start Block</button>
+            <button class="demo-btn" id="btnAway" disabled>Simulate: Leave Desk</button>
+            <button class="demo-btn" id="btnReturn" disabled>Simulate: Return</button>
+            <button class="demo-btn" id="btnDistract" disabled>Simulate: Distracted</button>
+            <button class="demo-btn" id="btnReset">Reset</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="notif-feed">
+            <div class="notif-feed-label">Live Notification Feed</div>
+            <div id="notifFeed"><div class="notif-empty">No notifications yet.</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="summary-panel" id="summaryPanel">
+        <div class="notif-feed-label">Block Summary</div>
+        <div class="summary-grid">
+          <div class="summary-item"><div class="n" id="sumWorked">—</div><div class="l">Worked</div></div>
+          <div class="summary-item"><div class="n" id="sumAway">—</div><div class="l">Away (undeclared)</div></div>
+          <div class="summary-item"><div class="n" id="sumCompliance">—</div><div class="l">Compliance</div></div>
+        </div>
+        <div class="verdict-box">
+          <div class="vt">Recommendation engine verdict</div>
+          <div id="verdictText">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="monitor-caption">This is a client-side simulation for demonstration purposes — it approximates the timing state machine described in Exhibit 03, layer 4, compressed to real time so it can be explored in a browser. No camera access is used or requested on this page.</p>
+</section>
+
+<!-- 06 DEEP LEARNING -->
+<section class="exhibit" id="dl">
+  <div class="exhibit-head"><span class="exhibit-num">EXHIBIT 07</span><h2>Deep learning components</h2></div>
+  <p class="exhibit-intro">Built to be honest about what's a genuine contribution versus reused infrastructure — a distinction worth stating explicitly in any report or interview.</p>
+
+  <table class="tbl">
+    <tr><th>Component</th><th>Status</th><th>Why</th></tr>
+    <tr><td class="k">Face &amp; pose landmarks</td><td class="dim">Reused (pretrained)</td><td class="dim">MediaPipe's landmark models are infrastructure — retraining them adds no value and no reasonable student dataset beats them.</td></tr>
+    <tr><td class="k">Gaze / head-pose regressor</td><td>Built from scratch</td><td class="dim">Lightweight geometric solvePnP baseline plus an optional small MLP over landmarks — competitive with heavier CNN baselines at a fraction of the cost.</td></tr>
+    <tr><td class="k">Temporal engagement classifier</td><td>Built from scratch</td><td class="dim">GRU trained on windows of feature sequences; the project's central deep learning contribution.</td></tr>
+    <tr><td class="k">LSTM / Transformer comparisons</td><td>Built from scratch</td><td class="dim">Trained as ablation baselines against the deployed GRU — accuracy vs. latency vs. size tradeoffs, reported honestly.</td></tr>
+    <tr><td class="k">Fatigue-pattern autoencoder</td><td>Built from scratch</td><td class="dim">Reconstruction-error anomaly model comparing a student to their own baseline, not a population.</td></tr>
+    <tr><td class="k">Recommendation engine</td><td>Built from scratch</td><td class="dim">Deterministic trend/threshold rules — not "ML" in the modeling sense, but a designed, testable algorithm.</td></tr>
+    <tr><td class="k">Natural-language phrasing</td><td class="dim">Reused (API)</td><td class="dim">Claude API — fine-tuning a language model is out of scope and adds nothing; the contribution is in prompt/context design.</td></tr>
+  </table>
+
+  <p class="exhibit-body"><strong>Why GRU as the deployed model:</strong> sessions are short-to-medium sequences (a few hundred timesteps at 1–2 Hz) with a small per-timestep feature vector — the exact regime where GRU's lower parameter count tends to match or beat LSTM with less overfitting risk on a modest dataset, while staying cheap enough to run continuously on a laptop CPU. The Transformer is kept as a reported comparison, not the deployed model.</p>
+</section>
+
+<!-- 07 DATASET -->
+<section class="exhibit" id="data">
+  <div class="exhibit-head"><span class="exhibit-num">EXHIBIT 08</span><h2>Dataset strategy</h2></div>
+  <p class="exhibit-intro">Two datasets, two different jobs: one validates the architecture against a known benchmark, the other validates behavior in the actual deployment domain.</p>
+  <div class="exhibit-body">
+    <p><strong>DAiSEE (public benchmark).</strong> 9,068 video snippets from 112 users, labeled across four ordinal engagement-related states, collected during online lecture-watching. The standard academic anchor for this exact problem — used here to prove the temporal architecture works against real, citable labels. Its limitations are stated honestly rather than glossed over: short 10-second clips, a demographically narrow population, and a lecture-watching context rather than self-directed study.</p>
+    <p><strong>Self-collected diary dataset (deployment domain).</strong> Short scripted sessions — "look at the screen and type," "look away repeatedly," "read without typing," "leave the desk" — recorded with explicit consent, used to validate the model actually deployed. No raw video is retained past feature extraction; anyone recorded can request deletion.</p>
+  </div>
+</section>
+
+<!-- 08 STACK -->
+<section class="exhibit" id="stack">
+  <div class="exhibit-head"><span class="exhibit-num">EXHIBIT 09</span><h2>Technology stack</h2></div>
+  <table class="tbl">
+    <tr><th>Layer</th><th>Technology</th></tr>
+    <tr><td class="k">Perception / CV</td><td class="dim">Python, OpenCV, MediaPipe (Face Landmarker configured for 2 faces — primary student + second-person detection, Pose Landmarker, Object Detector / EfficientDet-Lite0 for phone detection)</td></tr>
+    <tr><td class="k">Deep learning</td><td class="dim">PyTorch — GRU / LSTM / Transformer, autoencoder</td></tr>
+    <tr><td class="k">Classical ML / stats</td><td class="dim">NumPy, scikit-learn, Pandas</td></tr>
+    <tr><td class="k">Backend / API</td><td class="dim">FastAPI</td></tr>
+    <tr><td class="k">Database</td><td class="dim">SQLite (dev) / PostgreSQL (prod) — statistics only, never video</td></tr>
+    <tr><td class="k">Frontend</td><td class="dim">React / Next.js, or Streamlit for a faster first pass</td></tr>
+    <tr><td class="k">LLM reasoning</td><td class="dim">Claude API</td></tr>
+    <tr><td class="k">Live notifications</td><td class="dim">OS-level or in-browser notification API</td></tr>
+  </table>
+</section>
+
+<!-- 10 DEPLOYMENT ARCHITECTURE -->
+<section class="exhibit" id="deployment">
+  <div class="exhibit-head"><span class="exhibit-num">EXHIBIT 10</span><h2>Deployment architecture</h2></div>
+  <p class="exhibit-intro">Two requirements pull in different directions: monitoring must survive the student tabbing away to another site, and the dashboard must be reachable by anyone with a link. A single website can't do both — so this isn't one.</p>
+
+  <div class="callout" style="border-left-color:var(--slate);background:#EFF1EE;">
+    <strong style="color:var(--slate);">Why a browser tab can't do this alone</strong>
+    Browsers deliberately throttle or suspend JavaScript execution — and often stop delivering camera frames entirely — on tabs that lose focus. This is a deliberate power/privacy protection, not a bug to code around. A webcam-monitoring browser tab silently degrades the moment a student switches to another tab, which is the opposite of what an invigilator needs to do.
+  </div>
+
+  <div class="exhibit-body">
+    <p><strong>The resolution: split the system in two.</strong></p>
+    <p><strong>Local Watcher</strong> — a small Python process launched once per study block, running as its own OS process, independent of any browser or tab. It owns the webcam continuously, runs the full perception → feature → temporal-model pipeline, tracks the away-stopwatch, detects phones and a second person in frame, and fires OS-level desktop notifications — all regardless of what has focus on screen. It sends only extracted features and state events to the backend, never video.</p>
+    <p><strong>Shared Web Dashboard</strong> — the normal deployed website: target-block planning, live status, session history, compliance reports, recommendations. This is what gets the public URL anyone can open. It reads and displays what the watcher reports; it never touches the webcam itself.</p>
+  </div>
+
+  <div class="pipeline" style="margin-top:8px;">
+    <div class="pipe-row">
+      <div class="pipe-num">A</div>
+      <div class="pipe-content">
+        <div class="pipe-title">Local Watcher (per student, runs on their machine)</div>
+        <div class="pipe-desc">Owns the webcam · runs Layers 1–4 · authenticates to the backend · pushes state events over HTTP/WebSocket</div>
+        <div class="pipe-tools">Distributed as a script or a packaged single executable (PyInstaller)</div>
+      </div>
+    </div>
+    <div class="pipe-row">
+      <div class="pipe-num">B</div>
+      <div class="pipe-content">
+        <div class="pipe-title">Shared Web Dashboard (one public URL, every student's account)</div>
+        <div class="pipe-desc">Planning, live status display, history, recommendations · reads what the watcher reports · never accesses a camera</div>
+        <div class="pipe-tools">FastAPI + Postgres backend, React frontend — deployed to a public host</div>
+      </div>
+    </div>
+  </div>
+  <p class="exhibit-body dim" style="font-size:14px;">A browser-extension middle ground was considered and set aside: it narrows the tab-backgrounding problem but doesn't remove it, and adds real build and review complexity for a project at this stage.</p>
+</section>
+
+<!-- 11 ROADMAP -->
+<section class="exhibit" id="roadmap">
+  <div class="exhibit-head"><span class="exhibit-num">EXHIBIT 11</span><h2>Development roadmap</h2></div>
+  <p class="exhibit-intro">Ordered to validate cheap assumptions before expensive ones — and to produce a demoable system at every milestone.</p>
+  <ol>
+    <li><strong>Phase A — Signal feasibility.</strong> Confirm raw features actually separate focused/distracted/away before writing any model code.</li>
+    <li><strong>Phase B — Feature pipeline.</strong> A clean, deterministic frame → feature-vector function. The foundation everything downstream depends on.</li>
+    <li><strong>Phase C — Rule-based baseline.</strong> A working end-to-end demo with no deep learning — dashboard, stopwatch, and target-block monitor running on simple thresholds. Also the baseline the trained model must beat.</li>
+    <li><strong>Phase D — Train the temporal model.</strong> GRU primary, LSTM and Transformer as comparisons — only started once B and C exist.</li>
+    <li><strong>Phase E — Fatigue-pattern autoencoder.</strong> Reuses the Phase D feature pipeline.</li>
+    <li><strong>Phase F — Recommendation engine.</strong> Needs several weeks of real target-block history to be meaningful.</li>
+    <li><strong>Phase G — LLM layer, live notifications, polished dashboard.</strong> Wraps trustworthy analytics in language and interface.</li>
+  </ol>
+</section>
+
+<!-- 10 EVALUATION -->
+<section class="exhibit" id="eval">
+  <div class="exhibit-head"><span class="exhibit-num">EXHIBIT 12</span><h2>Evaluation methodology</h2></div>
+  <div class="exhibit-body">
+    <p><strong>Model-level.</strong> LSTM vs. GRU vs. Temporal Transformer compared on accuracy, precision, recall, F1, confusion matrix, inference latency, model size, and CPU/GPU utilization; different window sizes and feature combinations (webcam-only vs. webcam + activity fusion) ablated separately.</p>
+    <p><strong>System-level.</strong> The trained GRU is compared against the Phase C rule-based baseline — an honest test of whether the deep learning model earns its complexity. The away-stopwatch's false-trigger rate is measured against manually logged ground truth. The recommendation engine's suggestions are spot-checked against what a human reviewing the same logs would independently suggest.</p>
+  </div>
+  <div class="chip-row">
+    <span class="chip">Accuracy</span><span class="chip">Precision</span><span class="chip">Recall</span><span class="chip">F1-score</span>
+    <span class="chip">Confusion matrix</span><span class="chip">Inference latency</span><span class="chip">Model size</span><span class="chip">CPU/GPU utilization</span>
+  </div>
+</section>
+
+<footer>
+  <div class="fline">
+    <span>AI STUDY INVIGILATOR — PROJECT DOSSIER</span>
+    <span>Companion file: AI_Study_Invigilator_Project.txt</span>
+  </div>
+</footer>
+
+<script>
+(function(){
+  const SIM_SECONDS_PER_MIN = 1; // 1 real second = 1 simulated minute
+  const TARGET_MIN = 90;
+
+  const el = {
+    liveLabel: document.getElementById('liveLabel'),
+    statusLed: document.getElementById('statusLed'),
+    statusText: document.getElementById('statusText'),
+    statusSub: document.getElementById('statusSub'),
+    elapsedTimer: document.getElementById('elapsedTimer'),
+    awayBox: document.getElementById('awayBox'),
+    awayTimer: document.getElementById('awayTimer'),
+    notifFeed: document.getElementById('notifFeed'),
+    btnStart: document.getElementById('btnStart'),
+    btnAway: document.getElementById('btnAway'),
+    btnReturn: document.getElementById('btnReturn'),
+    btnDistract: document.getElementById('btnDistract'),
+    btnReset: document.getElementById('btnReset'),
+    summaryPanel: document.getElementById('summaryPanel'),
+    sumWorked: document.getElementById('sumWorked'),
+    sumAway: document.getElementById('sumAway'),
+    sumCompliance: document.getElementById('sumCompliance'),
+    verdictText: document.getElementById('verdictText'),
+  };
+
+  let state = 'idle'; // idle | engaged | distracted | away
+  let running = false;
+  let elapsedMin = 0;
+  let awaySec = 0;
+  let awayMin = 0;
+  let workedMin = 0;
+  let awayTotalMin = 0;
+  let distractedMin = 0;
+  let notif30 = false, notif120 = false;
+  let mainTimer = null;
+  let awayTimerHandle = null;
+  let firstNotifShown = false;
+
+  function fmt(mins){
+    const m = Math.floor(mins);
+    const s = Math.round((mins - m) * 60);
+    return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+  }
+  function fmtSec(totalSec){
+    const m = Math.floor(totalSec/60);
+    const s = totalSec % 60;
+    return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+  }
+
+  function pushNotif(text){
+    if(!firstNotifShown){
+      el.notifFeed.innerHTML = '';
+      firstNotifShown = true;
+    }
+    const div = document.createElement('div');
+    div.className = 'notif-item';
+    div.textContent = text;
+    el.notifFeed.prepend(div);
+  }
+
+  const LED_COLORS = {
+    green:  { bg: '#4A7C59', text: '#6FBE85' },
+    amber:  { bg: '#D98E2E', text: '#E8A94B' },
+    red:    { bg: '#B4543A', text: '#E07A5F' },
+    slate:  { bg: '#5A6270', text: '#F7F5F0' }
+  };
+  function setStatus(label, sub, colorKey){
+    const c = LED_COLORS[colorKey] || LED_COLORS.slate;
+    el.statusText.textContent = label;
+    el.statusSub.textContent = sub;
+    el.statusLed.style.background = c.bg;
+    el.statusText.style.color = c.text;
+  }
+
+  function updateElapsedDisplay(){
+    el.elapsedTimer.textContent = fmt(elapsedMin) + ' / ' + TARGET_MIN + ':00';
+    el.elapsedTimer.className = 'timer-value ' + (state === 'away' ? 'warn' : 'ok');
+  }
+
+  function startAway(){
+    state = 'away';
+    awaySec = 0;
+    notif30 = false; notif120 = false;
+    el.awayBox.classList.add('active');
+    el.awayTimer.textContent = '00:00';
+    setStatus('AWAY', 'Away-stopwatch started automatically.', 'red');
+    el.btnAway.disabled = true;
+    el.btnReturn.disabled = false;
+    el.btnDistract.disabled = true;
+
+    awayTimerHandle = setInterval(() => {
+      awaySec++;
+      el.awayTimer.textContent = fmtSec(awaySec);
+      // simulate: 1 real sec = 1 sim minute for away too, so 3 real sec ~ notify tier 1, 8 real sec ~ tier 2
+      if(awaySec >= 3 && !notif30){
+        notif30 = true;
+        pushNotif('⚠ 00:03 away — stepped away? Mark a break or resume.');
+      }
+      if(awaySec >= 8 && !notif120){
+        notif120 = true;
+        pushNotif('⚠⚠ 00:08 away — this is being logged as undeclared away time.');
+      }
+    }, 1000);
+  }
+
+  function endAway(){
+    clearInterval(awayTimerHandle);
+    el.awayBox.classList.remove('active');
+    awayTotalMin += awaySec; // 1 real sec counted as 1 sim minute of away, matches main clock scale
+    state = 'engaged';
+    setStatus('ENGAGED', 'Back at the desk — resuming work timer.', 'green');
+    el.btnAway.disabled = false;
+    el.btnReturn.disabled = true;
+    el.btnDistract.disabled = false;
+    pushNotif('✓ Returned after ' + fmtSec(awaySec) + ' — away period closed and logged.');
+  }
+
+  function setDistracted(){
+    if(state !== 'engaged') return;
+    state = 'distracted';
+    setStatus('DISTRACTED', 'Gaze off-screen — not counted toward compliance.', 'amber');
+    pushNotif('◑ Gaze pattern suggests distraction — not penalized as harshly as an absence, but not counted as worked time.');
+    el.btnDistract.disabled = true;
+    setTimeout(() => {
+      if(state === 'distracted'){
+        state = 'engaged';
+        setStatus('ENGAGED', 'Back on task.', 'green');
+        el.btnDistract.disabled = false;
+      }
+    }, 3000);
+  }
+
+  function tick(){
+    elapsedMin += 1;
+    if(state === 'engaged') workedMin += 1;
+    else if(state === 'distracted') distractedMin += 1;
+    updateElapsedDisplay();
+
+    if(elapsedMin >= TARGET_MIN){
+      finishBlock();
+    }
+  }
+
+  function finishBlock(){
+    running = false;
+    clearInterval(mainTimer);
+    clearInterval(awayTimerHandle);
+    el.liveLabel.textContent = 'COMPLETE';
+    setStatus('BLOCK COMPLETE', 'Generating summary…', 'slate');
+    el.btnAway.disabled = true;
+    el.btnReturn.disabled = true;
+    el.btnDistract.disabled = true;
+    el.btnStart.disabled = true;
+
+    const compliance = Math.round((workedMin / TARGET_MIN) * 100);
+    el.sumWorked.textContent = workedMin + ' min';
+    el.sumAway.textContent = Math.round(awayTotalMin) + ' min';
+    el.sumCompliance.textContent = compliance + '%';
+
+    let verdict;
+    if(compliance >= 85){
+      verdict = 'On track. Compliance held above 85% with minimal away-time. Recommendation: keep this block length, or trial extending it by 15 minutes next session.';
+    } else if(compliance < 55){
+      verdict = 'Needs shorter blocks. Compliance fell below 55% this session. If this holds across your next few 90-minute attempts, the system will suggest switching to 45-minute blocks with a mandatory scheduled break.';
+    } else {
+      verdict = 'Partial compliance. Consider adding one scheduled break at the midpoint of future 90-minute blocks rather than shortening the block itself.';
+    }
+    el.verdictText.textContent = verdict;
+    el.summaryPanel.classList.add('show');
+  }
+
+  el.btnStart.addEventListener('click', () => {
+    if(running) return;
+    running = true;
+    state = 'engaged';
+    el.liveLabel.textContent = 'MONITORING';
+    setStatus('ENGAGED', 'Session started — tracking toward 90:00.', 'green');
+    el.btnStart.disabled = true;
+    el.btnAway.disabled = false;
+    el.btnDistract.disabled = false;
+    mainTimer = setInterval(tick, 1000);
+  });
+
+  el.btnAway.addEventListener('click', () => {
+    if(!running || state === 'away') return;
+    startAway();
+  });
+
+  el.btnReturn.addEventListener('click', () => {
+    if(state !== 'away') return;
+    endAway();
+  });
+
+  el.btnDistract.addEventListener('click', setDistracted);
+
+  el.btnReset.addEventListener('click', () => {
+    running = false;
+    clearInterval(mainTimer);
+    clearInterval(awayTimerHandle);
+    state = 'idle';
+    elapsedMin = 0; awaySec = 0; workedMin = 0; awayTotalMin = 0; distractedMin = 0;
+    notif30 = false; notif120 = false; firstNotifShown = false;
+    el.liveLabel.textContent = 'STANDBY';
+    setStatus('NOT STARTED', 'Press "Start Block" to begin the simulation.', 'slate');
+    el.elapsedTimer.textContent = '00:00 / 90:00';
+    el.elapsedTimer.className = 'timer-value ok';
+    el.awayBox.classList.remove('active');
+    el.notifFeed.innerHTML = '<div class="notif-empty">No notifications yet.</div>';
+    el.summaryPanel.classList.remove('show');
+    el.btnStart.disabled = false;
+    el.btnAway.disabled = true;
+    el.btnReturn.disabled = true;
+    el.btnDistract.disabled = true;
+  });
+})();
+</script>
+
+</body>
+</html>

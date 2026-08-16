@@ -1,0 +1,6 @@
+# Phase H needs everything phase_c/watcher/requirements.txt needs
+# (PyInstaller bundles the watcher's actual runtime dependencies), PLUS
+# PyInstaller itself. Install phase_c/watcher's requirements first:
+#   pip install -r ../phase_c/watcher/requirements.txt
+#   pip install -r requirements.txt
+pyinstaller>=6.0

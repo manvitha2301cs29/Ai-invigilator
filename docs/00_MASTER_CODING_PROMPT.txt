@@ -1,0 +1,292 @@
+================================================================================
+MASTER PROMPT -- PASTE THIS INTO YOUR AI CODING ASSISTANT
+(Claude Code, Cursor, Copilot Chat, ChatGPT, etc.)
+================================================================================
+
+HOW TO USE THIS FILE
+  Paste everything between the START and END markers below as your first
+  message to an AI coding assistant, in a fresh project folder. It is
+  intentionally long and specific -- vague prompts produce vague code.
+  If your assistant has a file-upload or "project context" feature,
+  attach AI_Study_Invigilator_Project.txt alongside this prompt for full
+  background; otherwise the summary embedded below is sufficient to start.
+
+  Build in the phase order given. Do not ask the assistant to build
+  everything in one shot -- work phase by phase, review each phase's
+  output, then move to the next prompt in this same conversation thread
+  so context carries forward. Follow-up prompts for each phase are
+  included further down this file.
+
+================================================================================
+START OF PROMPT
+================================================================================
+
+I'm building a project called "AI Study Invigilator." Act as a senior
+full-stack + ML engineer helping me build it incrementally, phase by
+phase. Read this entire brief before writing any code.
+
+PROJECT SUMMARY
+A system that helps a motivated-but-inconsistent student hold themselves
+to self-set study blocks. The student sets a target block (e.g. 12:00 to
+13:30). While the block is active, a local Python process watches the
+webcam continuously (independent of any browser tab, so it keeps working
+while the student uses other tabs like LeetCode) and classifies behavior
+into: Engaged, Idle-present, Distracted-present, or Away. The moment the
+student leaves the desk, a stopwatch starts automatically and stops when
+they return. If a phone is detected in frame for a sustained period, fire
+a direct notification: "Don't use your phone, {name}." If a second person
+is detected in frame for a sustained period, fire a direct notification:
+"Stay in a quiet environment -- avoid talking to others, {name}." At the
+end of the block, the student sees exactly how much time was worked, how
+much was on a declared break, and how much was lost to being away or
+distracted, plus a personalized recommendation (shrink the block, extend
+it, or add a scheduled break) based on their OWN historical compliance
+trend -- not a generic rule.
+
+NON-NEGOTIABLE DESIGN PRINCIPLES (do not deviate from these)
+1. PRIVACY: never persist raw video frames to disk or database. Only
+   numeric features and derived statistics are stored. Frames are
+   processed in memory and discarded immediately after feature
+   extraction.
+2. NO MENTAL-STATE CLAIMS: the system classifies observable behavior
+   only (face orientation, gaze, posture, presence, movement, phone
+   presence). It never claims to detect emotions or "focus" as a mental
+   state. Prolonged eye closure is labeled "possible rest/sleep," an
+   inference, never asserted as fact.
+3. DURATION-GATED FLAGS: no state or warning is ever decided from a
+   single frame. Every flag (away, distracted, phone-use, prolonged
+   eye-closure) requires a signal to persist past a duration threshold.
+   Specifically:
+   - Note-taking (sustained head-down WITH a periodic look-up cycle)
+     must NOT be flagged as distracted.
+   - A brief head turn (a glance, checking a second monitor) must NOT be
+     flagged; only a SUSTAINED head turn (implying conversation) should
+     flag as Distracted-present.
+   - Gaze tolerance must be calibrated per-user (a short "look at your
+     screen corners" calibration step at first run) so wide or
+     multi-monitor setups don't misread as constant distraction.
+   - Brief eyes-closed (a few seconds, thinking) must NOT be flagged.
+     Only eyes-closed sustained past ~6 minutes (configurable) should
+     flag, worded as "possible rest/sleep."
+   - A phone glimpsed briefly must NOT be flagged. Only a phone visible/
+     held for a sustained duration should trigger the named warning
+     "Don't use your phone, {name}."
+   - A second person glimpsed briefly (someone walking past in the
+     background) must NOT be flagged. Only a second face present
+     continuously for a sustained duration should trigger the named
+     warning "Stay in a quiet environment -- avoid talking to others,
+     {name}." This reuses the same Face Landmarker already running for
+     the primary student (configure it for up to 2 faces) rather than a
+     separate model -- no new dependency needed.
+4. DETERMINISTIC LOGIC IS SEPARATE FROM LLM OUTPUT: all numbers
+   (compliance %, worked time, away time, verdict category) are computed
+   by plain, testable, deterministic code. The LLM (Claude API) is used
+   ONLY to phrase the final natural-language message from those
+   already-computed numbers -- it must never be the source of a number
+   or a verdict category itself.
+5. TWO-PART DEPLOYMENT ARCHITECTURE: this is NOT a single website.
+   - A LOCAL WATCHER: a Python process that runs on the student's own
+     machine, owns the webcam continuously, and keeps working even when
+     the student's browser is on a different tab or the browser is
+     minimized. It sends only extracted features/state events (never
+     video) to a backend API over HTTP/WebSocket.
+   - A SHARED WEB DASHBOARD: a normal deployed website (public URL,
+     anyone with the link can view their own account's data) for
+     planning target blocks, viewing live status as reported by the
+     watcher, session history, and recommendations. It does NOT access
+     the webcam itself.
+   Explain this split back to me in your own words before starting, so
+   I know you understood it, then proceed.
+
+TECH STACK
+  - Perception: Python, OpenCV, MediaPipe (Face Landmarker, Pose
+    Landmarker, Object Detector using the EfficientDet-Lite0 model for
+    phone detection -- it's COCO-pretrained and already includes a
+    "cell phone" class, so no custom training data is needed for this
+    part)
+  - Deep learning: PyTorch (GRU primary temporal model; LSTM and a small
+    Transformer encoder as comparison baselines; a separate autoencoder
+    for fatigue-pattern anomaly detection)
+  - Backend: FastAPI, PostgreSQL from the start (not SQLite) -- this
+    project targets real production deployment so others can use it,
+    and SQLite's single-writer model doesn't hold up behind a public
+    multi-user backend. Run Postgres locally via Docker during
+    development (docker-compose) so local dev is architecturally
+    identical to what gets deployed later. Use SQLAlchemy 2.x
+    (DeclarativeBase + Mapped[]/mapped_column style) with the psycopg
+    (v3) driver.
+  - Frontend: React (Vite) -- component-based, clean, functional
+    components with hooks, Tailwind for styling
+  - LLM: Claude API (Anthropic), called only from the backend, never
+    the frontend or the watcher
+  - Local watcher <-> backend communication: simple authenticated HTTP
+    POST for state events; a WebSocket connection for live status so the
+    dashboard can show real-time state without polling
+
+DATA MODEL (implement exactly this, adjust types to your ORM/framework)
+  TargetBlock: id, user_id, planned_start, planned_end,
+    planned_duration_min, status [scheduled|active|completed|abandoned],
+    actual_start, actual_end, created_at
+  StateEvent: id, target_block_id, timestamp, state
+    [engaged|idle_present|distracted_present|away], raw_features (JSON:
+    yaw, pitch, roll, gaze_x, gaze_y, eyes_closed, posture_angle,
+    movement_delta, face_conf, phone_detected, second_person_detected)
+  BreakEvent: id, target_block_id, break_start, break_end, declared=true
+  AwayEvent: id, target_block_id, away_start, away_end, duration_sec,
+    was_notified
+  PhoneEvent: id, target_block_id, detected_start, detected_end,
+    duration_sec, was_notified
+  SecondPersonEvent: id, target_block_id, detected_start, detected_end,
+    duration_sec, was_notified
+  TargetBlockSummary: target_block_id, worked_sec, distracted_sec,
+    away_undeclared_sec, declared_break_sec, phone_flag_count,
+    second_person_flag_count, away_event_count, compliance_pct, verdict
+    [on_track|needs_shorter_blocks|needs_scheduled_breaks]
+  User: id, name, email, auth fields as appropriate for your chosen auth
+    approach
+
+BUILD ORDER (we will do these as separate follow-up prompts in this same
+conversation -- for now, just confirm you understand the full scope, ask
+me up to 3 clarifying questions if something is genuinely ambiguous, and
+wait for me to say "start Phase A")
+  Phase A: Signal feasibility script (standalone, no DB/backend yet) --
+    prints raw MediaPipe landmark/pose/gaze/phone-detection/second-person-
+    detection output live from webcam so I can visually confirm the
+    signals separate the behaviors before we build anything else.
+  Phase B: Feature extraction module -- deterministic frame -> feature
+    vector function, including the look-up-cycle-rate and calibrated
+    gaze-envelope derived features, unit tested with mocked landmark
+    input (no live camera needed for tests).
+  Phase C: Rule-based baseline + local watcher skeleton + FastAPI
+    backend skeleton + PostgreSQL schema (via Docker locally) -- an
+    end-to-end working system using simple thresholds (no trained model
+    yet), including the
+    away-stopwatch state machine and phone-detection and second-person-
+    detection warnings.
+  Phase D: PyTorch training pipeline for the GRU/LSTM/Transformer
+    temporal classifier, with a script to train on DAiSEE and a
+    separate script to fine-tune/evaluate on a self-collected CSV
+    dataset (schema for that CSV to be defined by you).
+  Phase E: Autoencoder for fatigue-pattern anomaly detection.
+  Phase F: Deterministic recommendation engine (trend-based
+    verdict logic) with unit tests covering the on_track /
+    needs_shorter_blocks / needs_scheduled_breaks thresholds.
+  Phase G: Claude API integration for phrasing recommendations (backend
+    only), React dashboard (target-block planner, live status view via
+    WebSocket, session history, charts), and deploying the dashboard
+    publicly. PyInstaller packaging of the watcher is a separate,
+    optional Phase H -- only pursue it once Phase G's plain-Python
+    watcher + deployed dashboard both work end to end; don't let
+    packaging block a working core system.
+
+For each phase, produce complete, runnable code with clear file paths,
+brief comments explaining non-obvious decisions, and a short section at
+the end telling me exactly how to test that phase's output before we
+move to the next one. Ask before making a significant architectural
+choice I haven't specified.
+
+Confirm you've understood the brief and the two-part deployment
+architecture, then wait for me to say "start Phase A."
+
+================================================================================
+END OF PROMPT
+================================================================================
+
+
+================================================================================
+FOLLOW-UP PROMPTS (send these one at a time, in order, after the model
+confirms understanding of the master prompt above and after you've
+reviewed each phase's output)
+================================================================================
+
+--- Send after confirmation ---
+"start Phase A"
+
+--- Send after reviewing Phase A output and confirming signals look
+    reasonable on your own webcam ---
+"Phase A looks good, the signals separate cleanly. Start Phase B. Make
+sure the look_up_cycle_rate and gaze_envelope calibration logic exactly
+match what's described in the false-positive handling rules from the
+brief -- write unit tests for: (1) sustained head-down WITH a look-up
+cycle is NOT flagged, (2) sustained head-down with NO look-up cycle
+eventually falls through to a flaggable state, (3) a brief head turn is
+NOT flagged, (4) a sustained head turn IS flagged, (5) gaze within the
+calibrated envelope is NOT flagged regardless of raw angle."
+
+--- Send after reviewing Phase B and its tests pass ---
+"Phase B tests pass. Start Phase C. Build the local watcher as a
+standalone process I can run with `python run_watcher.py`, and make sure
+it keeps sampling the webcam on a timer independent of any UI focus.
+Include the away-stopwatch state machine exactly as specified (grace
+period before declaring away, escalating notification tiers), the phone-
+detection duration-gated warning using the personalized message format
+'Don't use your phone, {name}', the second-person-detection duration-
+gated warning using the personalized message format 'Stay in a quiet
+environment -- avoid talking to others, {name}' (reuse the Face
+Landmarker configured for 2 faces rather than adding a new model), and a
+minimal FastAPI backend with the exact data model from the brief. Use
+PostgreSQL (run locally via Docker Desktop -- give me a docker-compose
+file for this). Give me a way to manually declare a break via a simple
+CLI command or hotkey for now -- we'll wire up the real UI in Phase G."
+
+--- Send after Phase C runs end-to-end locally ---
+"Phase C works end-to-end. Start Phase D. Also generate a data-prep
+script that downloads or expects a local copy of DAiSEE, converts its
+labels into our 4-state taxonomy (document your mapping choice clearly,
+since DAiSEE's original labels are ordinal engagement/boredom/confusion/
+frustration, not the same taxonomy), and a second script that reads a
+self-collected CSV (columns: timestamp, session_id, yaw, pitch, roll,
+gaze_x, gaze_y, eyes_closed, posture_angle, movement_delta, face_conf,
+phone_detected, second_person_detected, label) for fine-tuning/
+validation on our actual deployment domain."
+
+--- Send after Phase D training runs and you have baseline metrics ---
+"Training pipeline works. Start Phase E."
+
+--- After Phase E ---
+"Start Phase F. Write thorough unit tests for the verdict thresholds
+(compliance >= 0.85 and away_event_count <= 1 -> on_track; compliance <
+0.55 or away_event_count >= 4 -> needs_shorter_blocks; otherwise ->
+needs_scheduled_breaks) and for the trend logic that looks at the last
+several TargetBlockSummary rows at the same planned_duration rather than
+reacting to a single session."
+
+--- After Phase F ---
+"Start Phase G. For the Claude API integration, the prompt to Claude
+should receive ONLY the structured verdict/numbers object, never raw
+features or video -- show me the exact prompt template you're using. For
+the React dashboard, prioritize: (1) a target-block planner screen, (2)
+a live status screen that reflects the watcher's current state over
+WebSocket including the away-stopwatch, phone-warning banner, and
+second-person-warning banner, (3) a
+post-block summary screen with the worked/away/break breakdown and the
+LLM-phrased recommendation, (4) a history/trends screen. Keep the
+watcher runnable via plain `python run_watcher.py` for now -- we'll
+package it as a standalone executable in Phase H only if there's time
+left."
+
+--- After Phase G, once the dashboard is deployed and a plain-Python
+    watcher successfully reports to it (OPTIONAL -- only if you have
+    time left) ---
+"Start Phase H. Package the watcher with PyInstaller as a single
+executable for non-technical users. Give me the exact PyInstaller
+command, a note on expected output size, and a short README section for
+distributing it via the dashboard's 'Start Monitoring' page."
+
+================================================================================
+TIPS FOR VIBE-CODING THIS EFFECTIVELY
+================================================================================
+- Keep this conversation thread going for the whole project rather than
+  starting new chats per phase -- the assistant needs the accumulated
+  context of earlier phases (file structure, naming, data model) to stay
+  consistent.
+- After each phase, actually run the code before moving on. It's much
+  cheaper to say "Phase C's away-stopwatch doesn't reset correctly when
+  I return before the grace period ends" than to discover it three
+  phases later buried under more code.
+- If the assistant's output drifts from the false-positive rules or the
+  privacy/no-raw-video rules, quote the exact rule back at it from this
+  file rather than re-explaining from scratch -- it re-anchors faster.
+- Ask for unit tests at every phase where behavior is rule-based
+  (Phase B, C's state machine, F). Deep learning phases (D, E) should
+  instead get you an evaluation script with metrics, not unit tests.

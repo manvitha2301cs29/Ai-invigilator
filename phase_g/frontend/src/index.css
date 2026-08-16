@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-feature-settings: "cv02", "cv03";
+  }
+  ::selection {
+    background: theme("colors.signal.amber");
+    color: theme("colors.ink.950");
+  }
+  :focus-visible {
+    outline: 2px solid theme("colors.signal.amber");
+    outline-offset: 2px;
+  }
+}
